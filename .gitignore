@@ -1,0 +1,6 @@
+dist/
+.DS_Store
+.code-review-graph/
+.agent/
+.cursor/
+.ai/

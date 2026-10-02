@@ -1,0 +1,96 @@
+{
+  "folders": [
+    {
+      "name": "📘 Workspace",
+      "path": "."
+    },
+    {
+      "name": "🔧 Shared library",
+      "path": "shared"
+    },
+    {
+      "name": "📗 SEM System Design",
+      "path": "handbooks/sem-system-design"
+    }
+  ],
+  "settings": {
+    "files.associations": {
+      "*.typ": "typst"
+    },
+    "files.exclude": {
+      "**/.DS_Store": true,
+      "**/.code-review-graph": true
+    },
+    "search.exclude": {
+      "dist/**": true
+    },
+    "explorer.fileNesting.enabled": true,
+    "explorer.fileNesting.patterns": {
+      "handbook.typ": "SPEC.md, README.md"
+    },
+    "editor.rulers": [
+      96
+    ],
+    "editor.wordWrap": "bounded",
+    "editor.wordWrapColumn": 96,
+    "[typst]": {
+      "editor.tabSize": 2,
+      "editor.insertSpaces": true
+    },
+    "typst-preview.pinPreviewFile": true,
+    "terminal.integrated.cwd": "${workspaceFolder:📘 Workspace}"
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Build all handbooks",
+        "type": "shell",
+        "command": "./build.sh",
+        "options": {
+          "cwd": "${workspaceFolder:📘 Workspace}"
+        },
+        "group": {
+          "kind": "build",
+          "isDefault": true
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "Build SEM handbook",
+        "type": "shell",
+        "command": "./build.sh sem-system-design",
+        "options": {
+          "cwd": "${workspaceFolder:📘 Workspace}"
+        },
+        "group": "build",
+        "problemMatcher": []
+      },
+      {
+        "label": "Watch SEM handbook",
+        "type": "shell",
+        "command": "./build.sh sem-system-design --watch",
+        "options": {
+          "cwd": "${workspaceFolder:📘 Workspace}"
+        },
+        "isBackground": true,
+        "problemMatcher": []
+      },
+      {
+        "label": "Open built PDF",
+        "type": "shell",
+        "command": "open dist/sem-system-design.pdf",
+        "options": {
+          "cwd": "${workspaceFolder:📘 Workspace}"
+        },
+        "problemMatcher": []
+      }
+    ]
+  },
+  "extensions": {
+    "recommendations": [
+      "myriad-dreamin.tinymist",
+      "mgt19937.typst-preview"
+    ]
+  }
+}

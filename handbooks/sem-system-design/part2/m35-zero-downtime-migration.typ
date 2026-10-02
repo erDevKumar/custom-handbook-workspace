@@ -1,0 +1,183 @@
+#import "/shared/lib/template.typ": *
+#reg(1, "M35", "Zero-Downtime Database Migrations")
+#chapterhead("Part 2 · Modules", "M35 · Zero-Downtime Migrations")
+#ix("Zero-downtime migration")
+#ix("Backfill")
+#ix("Lock timeout")
+
+#h1("M35 · Zero-Downtime Migrations", c: green)
+
+#text[
+  Code rolls back in thirty seconds. A dropped column does not. That asymmetry is the whole
+  subject: schema changes must be structured so that the
+  #underline(stroke: 1pt + green)[old and new code can both run against the same database] for
+  as long as the rollout and any rollback require.
+]
+#v(2mm)
+
+#h2("1 · Expand–migrate–contract", c: blue)
+
+#align(center, cetz.canvas(length: 0.82cm, {
+  import cetz.draw: *
+  swimlane(-0.4, -2.2, 18.4, 2.1, "FOUR DEPLOYS, NEVER ONE", green, rgb("#f6fbf7"))
+  rnode(2.4, 1.1, "e", "1 · EXPAND", "add nullable column", green, w: 4.0, h: 0.95)
+  rnode(7.4, 1.1, "d", "2 · DUAL-WRITE", "write both, read old", orange, w: 4.0, h: 0.95)
+  rnode(12.4, 1.1, "b", "3 · BACKFILL", "batches + verify", orange, w: 4.0, h: 0.95)
+  rnode(17.0, 1.1, "c", "4 · CONTRACT", "drop old", red, w: 3.2, h: 0.95)
+  line("e.east", "d.west", mark: (end: ">"), stroke: hot)
+  line("d.east", "b.west", mark: (end: ">"), stroke: hot)
+  line("b.east", "c.west", mark: (end: ">"), stroke: miss)
+  content((2.4, -0.1), dlbl("old code unaffected", sz: 6.2pt, c: green))
+  content((7.4, -0.1), dlbl("both columns correct", sz: 6.2pt, c: green))
+  content((12.4, -0.1), dlbl("flip reads to new", sz: 6.2pt, c: orange))
+  content((17.0, -0.1), dlbl("only when nothing reads old", sz: 6.2pt, c: red))
+  bracket(0.6, 14.4, -1.1, "every step is independently deployable AND independently reversible", purple)
+  content((9.0, -2.0), dlbl("rollback from any step costs one deploy — never a restore", sz: 6.5pt, c: purple))
+}))
+#v(1.5mm)
+
+#text(size: 9pt)[
+  The rule that makes this work: #underline(stroke: 1pt + red)[never ship a schema change and the
+  code that requires it in the same release]. Expand is backwards-compatible, so old pods keep
+  running during a rolling deploy (M29). Contract happens days or weeks later, once you are
+  certain nothing reads the old shape --- and on mobile, "certain" means instrumented, not
+  assumed (M7).
+]
+#v(2mm)
+
+#h2("2 · Which DDL locks, and for how long", c: red)
+
+#table(
+  columns: (auto, auto, 1fr),
+  stroke: (x, y) => (
+    top: if y == 0 { 1.4pt + ink } else if y == 1 { 1.1pt + ink } else { 0.5pt + luma(190) },
+    bottom: 0.5pt + luma(190), left: none, right: none),
+  fill: (x, y) => if y == 0 { rgb("#fdf0ee") } else { none },
+  text(font: headfont, size: 8.5pt, fill: red)[Operation],
+  text(font: headfont, size: 8.5pt, fill: red)[Lock],
+  text(font: headfont, size: 8.5pt, fill: red)[Safe approach],
+
+  text(size: 8.3pt)[`ADD COLUMN` nullable, no default],
+  text(size: 8.3pt, fill: green)[instant],
+  text(size: 8pt)[Safe on modern Postgres/MySQL — metadata only],
+
+  text(size: 8.3pt)[`ADD COLUMN` with default],
+  text(size: 8.3pt, fill: orange)[varies],
+  text(size: 8pt)[Safe on PG 11+/MySQL 8; a #underline(stroke: 1pt + red)[full rewrite] on older versions],
+
+  text(size: 8.3pt)[`CREATE INDEX`],
+  text(size: 8.3pt, fill: red)[blocks writes],
+  text(size: 8pt, fill: green)[`CREATE INDEX CONCURRENTLY` — slower, no write lock],
+
+  text(size: 8.3pt)[`ADD CONSTRAINT` / FK],
+  text(size: 8.3pt, fill: red)[full scan],
+  text(size: 8pt, fill: green)[Add `NOT VALID`, then `VALIDATE CONSTRAINT` separately],
+
+  text(size: 8.3pt)[`ALTER COLUMN TYPE`],
+  text(size: 8.3pt, fill: red)[table rewrite],
+  text(size: 8pt)[New column + backfill + swap. Never in place on a large table],
+
+  text(size: 8.3pt)[`DROP COLUMN`],
+  text(size: 8.3pt, fill: green)[instant],
+  text(size: 8pt, fill: red)[Irreversible — the contract step, done last],
+)
+#v(1.5mm)
+
+#key[
+  The danger is rarely the DDL's own duration --- it is the
+  #text(fill: red, weight: "bold")[lock queue] behind it. An `ALTER TABLE` waiting on one
+  long-running transaction blocks every subsequent query on that table, including reads. A change
+  that would have taken 50 ms takes down the service for the length of the oldest transaction.
+  #underline(stroke: 1pt + green)[Always set `lock_timeout` so the migration fails fast rather
+  than queueing], and retry.
+]
+#v(2mm)
+
+#h2("3 · Capacity arithmetic", c: orange)
+
+#formula("Backfilling 500M rows without an incident")[
+  #text(size: 8.6pt)[
+    Naive: `UPDATE orders SET new_col = old_col` on 500M rows — one transaction, hours long,
+    holding locks and generating a #text(fill: red, weight: "bold")[single enormous WAL burst]
+    that stalls replication and fills disk.
+    #linebreak() #v(1mm)
+    #text(fill: green, weight: "bold")[Batched:] 10,000 rows per transaction, keyed by primary
+    key range, with a short pause between batches.
+    #linebreak()
+    500,000,000 / 10,000 = #text(weight: "bold")[50,000 batches]. At 50 ms each plus a 50 ms
+    pause #sym.arrow.r 50,000 × 0.1 s = #text(fill: orange, weight: "bold")[5,000 s ≈ 1.4 hours],
+    with production traffic unaffected throughout.
+    #linebreak() #v(1mm)
+    #text(weight: "bold")[Throttle on replication lag:] measure lag each batch and pause if it
+    exceeds a threshold. A backfill that outruns replication turns read replicas
+    #underline(stroke: 1pt + red)[minutes stale], which looks to users like data loss.
+    #linebreak() #v(1mm)
+    #text(weight: "bold")[Verification before contract:] a count of rows where
+    `new_col IS DISTINCT FROM old_col` must be #text(fill: green, weight: "bold")[zero] across the
+    whole table before dropping anything. Run it twice, hours apart, to catch rows written by code
+    paths you forgot.
+  ]
+]
+#v(2mm)
+
+#h2("4 · Failure modes", c: red)
+
+#text(size: 9pt)[
+  #text(fill: red, weight: "bold")[Migration and code in one release.] The deploy is half-rolled
+  out; old pods write without the new column while new pods require it.
+  #text(fill: green)[Fix:] separate deploys, always, with the schema change first and
+  backwards-compatible.
+
+  #text(fill: red, weight: "bold")[The missed writer.] Dual-write is implemented in the service,
+  but an admin tool, a batch job, or a database trigger writes the old column only. The backfill
+  passes, then drift reappears. #text(fill: green)[Fix:] enumerate
+  #underline(stroke: 1pt + green)[every] writer before starting; verification after a delay
+  catches what enumeration missed.
+
+  #text(fill: red, weight: "bold")[`CREATE INDEX` without `CONCURRENTLY`.] Writes block for the
+  duration of the build on a large table — minutes of downtime from one forgotten keyword.
+  #text(fill: green)[Fix:] make it a lint rule in migration review; `CONCURRENTLY` cannot run
+  inside a transaction, which is the usual reason people drop it.
+
+  #text(fill: red, weight: "bold")[Mobile clients pinned to the old shape.] The backend contracts
+  while app versions from last year still send the old field (M7).
+  #text(fill: green)[Fix:] the contract step is gated on client telemetry, not on backend
+  readiness.
+]
+#v(2mm)
+
+#h2("5 · Interview guide", c: green)
+
+#text(size: 8.8pt)[
+  #text(fill: green, weight: "bold")[Q: Rename a column on a 500M-row table with zero downtime.]
+  #linebreak()
+  Expand (add the new column), dual-write both, backfill in throttled batches, verify equality,
+  flip reads, verify again, then contract. Four deploys, each reversible.
+  #note[Testing: do you say "rename"? There is no safe rename — it is an add, a migrate, and a
+  drop, separated in time.]
+
+  #text(fill: green, weight: "bold")[Q: Why is `ALTER TABLE` risky even when it is fast?]
+  #linebreak()
+  It needs a lock that queues behind existing transactions and blocks everything arriving after
+  it. #note[Testing: understanding of lock queueing rather than DDL duration — this is the
+  mechanism behind most migration outages.]
+
+  #text(fill: green, weight: "bold")[Q: How do you know it is safe to drop the old column?]
+  #linebreak()
+  Instrumented reads: log and count every access to the old field by client version, and drop only
+  when the count has been zero for longer than your rollback window.
+  #note[Testing: evidence over confidence.]
+]
+#v(2mm)
+
+#anti("the big-bang migration window")[
+  The plan is a Sunday 02:00 maintenance window: take the service down, run the migration, bring
+  it up. It is estimated at 30 minutes. At 02:40 the `ALTER TABLE` is still running on a table
+  larger than staging; at 03:30 it is clear it will not finish before the business day; and the
+  rollback #underline(stroke: 1pt + red)[requires restoring a backup] because the migration is
+  half-applied and not reversible. The outage becomes eight hours, and the restore loses the
+  writes taken before the window.
+  #text(fill: green)[Fix:] expand–contract with online batched backfills. The migration runs for
+  hours #text(fill: green, weight: "bold")[while the service serves traffic], every step is
+  reversible by a deploy, and there is no window to overrun.
+]
