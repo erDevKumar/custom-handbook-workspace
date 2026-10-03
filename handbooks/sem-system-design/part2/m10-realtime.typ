@@ -60,28 +60,34 @@
 
 #h2("2 · Fan-out across a connection fleet", c: green)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M10.1 · one message across a connection fleet — a gateway only knows its own sockets")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.6, 18.4, 2.4, "CONNECTION FLEET", blue, rgb("#f4f8fd"))
-  rnode(2.4, 1.3, "u1", "250k clients", "mobile · flaky", purple, w: 3.8, h: 0.9)
-  rnode(7.6, 1.3, "lb", "L4 load balancer", "sticky by conn", blue, w: 4.2, h: 0.9)
-  line("u1.east", "lb.west", mark: (end: ">"), stroke: hot)
+  pprereq(-0.3, 20.9, 2.6, "L4 LB sticky per connection; 50k sockets per gateway; a persisted log behind the bus so reconnects can replay")
 
-  rnode(13.0, 1.9, "g1", "gateway 1", "50k conns", green, w: 3.2, h: 0.75)
-  rnode(13.0, 0.75, "g2", "gateway 2", "50k conns", green, w: 3.2, h: 0.75)
-  rnode(13.0, -0.4, "g3", "gateway N", "50k conns", green, w: 3.2, h: 0.75)
-  line("lb.east", "g1.west", mark: (end: ">"), stroke: hot)
-  line("lb.east", "g2.west", mark: (end: ">"), stroke: hot)
-  line("lb.east", "g3.west", mark: (end: ">"), stroke: hot)
+  ppill(1.7, 0, "in", "A sends", w: 3.1)
+  pstep(6.0, 0, "g1", "gateway 1", "50k conns · 0.2ms", st-man, n: 1, actor: "A's socket", w: 4.2)
+  pdec(10.5, 0, "loc", "B on THIS\ngateway?", w: 1.6)
+  pstep(14.9, 0, "bus", "pub/sub fan-out", "Redis · 1ms to all N", st-auto, n: 2, actor: "backplane", w: 4.2)
+  ppill(19.1, 0, "out", "B's socket", w: 3.3)
 
-  rnode(9.0, -3.3, "bus", "Redis pub/sub backplane", "or Kafka — fan-out to all gateways", purple,
-    w: 7.4, h: 1.0)
-  line("g1.south", (13.0, -2.3), (9.0, -2.3), "bus.north", mark: (end: ">"), stroke: async)
-  line("g2.south", (13.0, -2.3), (9.0, -2.3), "bus.north", mark: (end: ">"), stroke: async)
-  content((16.0, -2.4), dlbl("a gateway only knows ITS OWN", sz: 6.3pt, c: red))
-  content((16.0, -3.0), dlbl("connections — hence the bus", sz: 6.3pt, c: red))
-  bracket(0.6, 17.0, -4.3, "publish once -> every gateway delivers to its local subscribers", purple)
+  pstep(6.0, -4.0, "dir", "write the local socket", "no hop · 0.2ms", st-start, n: 3, actor: "gateway 1", w: 5.0)
+
+  line("in.east", "g1.west", mark: (end: ">"), stroke: hot)
+  line("g1.east", "loc.west", mark: (end: ">"), stroke: hot)
+  line("loc.east", "bus.west", mark: (end: ">"), stroke: async)
+  plabel(12.5, 0, "no", c: purple, dy: 0.62)
+  line("bus.east", "out.west", mark: (end: ">"), stroke: hot)
+  line("loc.south", (10.5, -4.0), "dir.east", mark: (end: ">"), stroke: hot)
+  plabel(9.5, -4.0, "yes", c: green, dy: 0.34)
+  content((16.0, -4.2), dlbl("Redis pub/sub is fire-and-forget:\na gateway that is briefly disconnected\nmisses those messages permanently.\nBack it with a log clients can replay.", sz: 6.5pt, c: red))
+  content((5.7, -6.4), dlbl("most \"we need WebSockets\" requirements are one-way and SSE serves them better", sz: 6.5pt, c: blue))
 }))
+#pcards(
+  [Sticky L4 routing per connection; a drain plan for deploys; a persisted log so clients replay by last-seen id],
+  [In: one message · Out: delivered to every subscriber across N gateways. Local 0.2ms, cross-gateway +1ms],
+  [L4 load balancer · WebSocket/SSE gateways, 50k conns each · Redis pub/sub or a Kafka backplane],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

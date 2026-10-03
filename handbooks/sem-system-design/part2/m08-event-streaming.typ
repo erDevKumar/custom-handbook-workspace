@@ -18,31 +18,34 @@
 
 #h2("1 · Partitions, offsets, consumer groups", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M8.1 · produce to a partition, consume by offset — ordering is per partition, never per topic")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.3, 18.4, 3.0, "TOPIC: orders — 4 partitions", orange, rgb("#fdf7f2"))
+  pprereq(-0.3, 20.9, 2.6, "partition key = ordering key, chosen first; partition count is your maximum parallelism; consumers idempotent")
 
-  // partitions as segmented logs
-  for (i, y) in ((0, 2.0), (1, 1.1), (2, 0.2), (3, -0.7)).enumerate() {
-    let py = y.at(1)
-    let pi = y.at(0)
-    content((1.2, py), dlbl("P" + str(pi), sz: 7pt, c: orange))
-    for k in range(7) {
-      rect((2.2 + k * 1.0, py - 0.28), (3.1 + k * 1.0, py + 0.28),
-        stroke: 0.8pt + luma(150), fill: if k < 5 { rgb("#fdece0") } else { white })
-    }
-    content((9.9, py), dlbl("→", sz: 8pt, c: luma(150)))
-  }
-  content((5.6, 2.75), dlbl("append-only · ordered WITHIN a partition · never deleted on read",
-    sz: 6.4pt, c: purple))
-  content((7.2, -1.05), dlbl("committed offset", sz: 6pt, c: green))
+  ppill(1.65, 0, "in", "OrderPlaced", w: 3.0)
+  pstep(5.7, 0, "part", "hash(key) % 4", "lands in P2 · 0.01ms", st-auto, n: 1, actor: "producer", w: 4.2)
+  pdec(10.4, 0, "isr", "in-sync\nreplicas?", w: 1.6)
+  pstep(14.8, 0, "log", "append to the log", "acks=all · sendfile · 8ms", st-integ, n: 2, actor: "broker", w: 4.4)
+  ppill(19.1, 0, "out", "group A reads", w: 3.3)
 
-  rnode(13.8, 2.0, "c1", "consumer 1", "P0, P1", green, w: 3.4, h: 0.8)
-  rnode(13.8, 0.65, "c2", "consumer 2", "P2", green, w: 3.4, h: 0.8)
-  rnode(13.8, -0.7, "c3", "consumer 3", "P3", green, w: 3.4, h: 0.8)
-  content((16.8, 0.65), dlbl("group A", sz: 6.5pt, c: green))
-  content((13.8, -1.6), dlbl("one partition → at most ONE consumer in a group", sz: 6.4pt, c: red))
+  pstep(10.4, -4.0, "fail", "NotEnoughReplicas", "no ack, producer retries", st-dec, n: 3, actor: "broker", w: 4.8)
+
+  line("in.east", "part.west", mark: (end: ">"), stroke: hot)
+  line("part.east", "isr.west", mark: (end: ">"), stroke: hot)
+  line("isr.east", "log.west", mark: (end: ">"), stroke: hot)
+  plabel(12.6, 0, "yes", c: green, dy: 0.62)
+  line("log.east", "out.west", mark: (end: ">"), stroke: hot)
+  line("isr.south", "fail.north", mark: (end: ">"), stroke: except)
+  plabel(12.5, -2.1, "below min", c: red, dy: 0)
+  content((16.6, -4.2), dlbl("records are never deleted on read:\neach group keeps its own offset, so a\nreplay is just a seek. One partition\nfeeds at most ONE consumer per group.", sz: 6.5pt, c: purple))
+  content((5.0, -4.2), dlbl("the producer retries; delivery\nis at-least-once, so duplicates\nare the consumer's problem", sz: 6.5pt, c: blue))
 }))
+#pcards(
+  [Partition key equals the ordering key; `acks=all` with `min.insync.replicas=2`; a consumer-side idempotency key],
+  [In: a keyed event · Out: ordered within its partition only. Offsets are committed after processing, not before],
+  [Kafka broker with `sendfile(2)` zero-copy · 4 partitions · the ISR set · consumer group A · idempotent producer],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

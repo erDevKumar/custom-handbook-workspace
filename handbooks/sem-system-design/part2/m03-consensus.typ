@@ -34,32 +34,34 @@
 ]
 #v(2mm)
 
-#align(center, cetz.canvas(length: 0.84cm, {
+#pfig("Fig M3.1 · Raft write path — the client hears nothing until a majority has acked")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -2.6, 18.4, 3.4, "RAFT WRITE PATH — commit needs a MAJORITY", red, rgb("#fdf0ee"))
-  rnode(2.2, 2.2, "cl", "client", "write x=5", blue, w: 2.8, h: 0.85)
-  rnode(7.4, 2.2, "ld", "LEADER", "term 7 · log idx 42", red, w: 4.2, h: 0.95)
-  line("cl.east", "ld.west", mark: (end: ">"), stroke: hot)
-  badge(4.8, 2.7, "1", green)
+  pprereq(-0.3, 20.9, 2.6, "a leader elected for the current term; 5 voting members; election timeout 150-300ms, randomised")
 
-  rnode(13.4, 3.0, "f1", "follower 1", "appended", green, w: 3.4, h: 0.8)
-  rnode(13.4, 1.5, "f2", "follower 2", "appended", green, w: 3.4, h: 0.8)
-  rnode(13.4, 0.0, "f3", "follower 3", "lagging", orange, w: 3.4, h: 0.8)
-  line("ld.east", "f1.west", mark: (end: ">"), stroke: hot)
-  line("ld.east", "f2.west", mark: (end: ">"), stroke: hot)
-  line("ld.east", "f3.west", mark: (end: ">"), stroke: (paint: orange, thickness: 1.1pt, dash: "dashed"))
-  badge(10.6, 2.7, "2", green)
-  content((16.6, 2.25), dlbl("ack", sz: 6.3pt, c: green))
-  content((16.6, 0.75), dlbl("ack", sz: 6.3pt, c: green))
-  content((16.3, -0.6), dlbl("no ack yet — fine", sz: 6.3pt, c: orange))
+  ppill(1.55, 0, "in", "write x=5", w: 2.8)
+  pstep(5.9, 0, "ld", "leader appends", "term 7 idx 42 · 0.1ms", st-dec, n: 1, actor: "leader", w: 4.2)
+  pstep(10.7, 0, "rep", "AppendEntries", "4 followers · RTT 2ms", st-auto, n: 2, actor: "replication", w: 4.2)
+  pdec(15.3, 0, "q", "3 of 5\nacked?", w: 1.6)
+  ppill(19.25, 0, "out", "committed", w: 3.0)
 
-  content((7.4, 0.7), dlbl("3 of 5 acked (leader + 2)", sz: 7pt, c: green))
-  content((7.4, 0.0), dlbl("-> COMMIT, apply to state machine", sz: 7pt, c: green))
-  line("ld.south", (7.4, -1.2), (2.2, -1.2), (2.2, 1.78), mark: (end: ">"), stroke: hot)
-  badge(4.8, -1.2, "3", green)
-  content((7.4, -1.8), dlbl("reply to client only AFTER commit", sz: 6.5pt, c: purple))
-  bracket(0.6, 17.6, -2.2, "quorum = floor(N/2)+1 — 3 of 5, tolerates 2 failures", purple)
+  pstep(15.3, -4.0, "blk", "no commit, no reply", "leader blocks and retries", st-dec, n: 3, actor: "leader", w: 4.8)
+
+  line("in.east", "ld.west", mark: (end: ">"), stroke: hot)
+  line("ld.east", "rep.west", mark: (end: ">"), stroke: hot)
+  line("rep.east", "q.west", mark: (end: ">"), stroke: hot)
+  line("q.east", "out.west", mark: (end: ">"), stroke: hot)
+  plabel(17.45, 0, "yes", c: green, dy: 0.62)
+  line("q.south", "blk.north", mark: (end: ">"), stroke: except)
+  plabel(17.1, -2.1, "minority", c: red, dy: 0)
+  content((6.4, -4.2), dlbl("quorum = floor(N/2)+1 = 3 of 5, so two members may be\ndown or lagging and the write still commits. A lagging\nfollower catches up later — it never blocks the commit.", sz: 6.5pt, c: purple))
+  content((10.3, -6.4), dlbl("the leader retries AppendEntries until a majority acks or the term ends; the client is told nothing until the entry is applied", sz: 6.5pt, c: blue))
 }))
+#pcards(
+  [A stable leader for the term; an odd member count; each member fsyncs its log before it acks],
+  [In: one write · Out: committed only after a majority ack — never reply early. Tolerates 2 of 5 down],
+  [Raft (Ongaro 2014) · etcd / Consul / CockroachDB · a fencing token on every lock handoff],
+)
 #v(2mm)
 
 #h2("2 · Replication models compared", c: purple)

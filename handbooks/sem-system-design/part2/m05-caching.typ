@@ -18,33 +18,36 @@
 
 #h2("1 · The tiers, and what each one costs", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M5.1 · read path across four tiers, and what each one costs")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -0.9, 18.4, 1.9, "EDGE", blue, rgb("#f4f8fd"))
-  swimlane(-0.4, -4.3, 18.4, -1.3, "SERVICE", green, rgb("#f6fbf7"))
-  swimlane(-0.4, -7.4, 18.4, -4.7, "STORAGE", orange, rgb("#fdf7f2"))
+  pprereq(-0.3, 20.9, 2.6, "every cached key has a declared staleness budget; ETags issued; a single-flight lock exists for the miss path")
 
-  rnode(3.0, 0.5, "cli", "Client", "ETag · 304", blue, w: 3.4, h: 1.0)
-  rnode(8.4, 0.5, "cdn", "CDN edge", "TTL 60s · 15ms", blue, w: 3.8, h: 1.0)
-  rnode(14.0, 0.5, "gw", "API gateway", "Envoy · 2ms", blue, w: 3.8, h: 1.0)
+  ppill(1.55, 0, "in", "GET /feed", w: 2.8)
+  pstep(5.5, 0, "cdn", "CDN edge", "TTL 60s · 15ms", st-integ, n: 1, actor: "edge", w: 3.6)
+  pstep(10.6, 0, "l1", "L1 in-process", "LRU 10k · 0.05ms", st-auto, n: 2, actor: "service", w: 4.0)
+  pdec(15.3, 0, "hit", "L2 hit?", w: 1.6)
+  ppill(19.35, 0, "out", "response", w: 2.8)
 
-  rnode(3.4, -2.8, "l1", "L1 in-proc", "LRU 10k · 0.05ms", green, w: 4.0, h: 1.0)
-  rnode(9.2, -2.8, "l2", "L2 Redis", "6 shards · 1ms", green, w: 4.0, h: 1.0)
-  rnode(15.0, -2.8, "svc", "origin svc", "cache-aside", green, w: 3.6, h: 1.0)
+  pstep(15.3, -4.0, "org", "origin read", "Postgres · 40ms", st-dec, n: 3, actor: "service", w: 4.4)
 
-  cylinder(9.2, -6.0, "db", "primary DB", orange, w: 3.4, h: 1.2)
-
-  line("cli.east", "cdn.west", mark: (end: ">"), stroke: hot); badge(5.7, 1.05, "1", green)
-  line("cdn.east", "gw.west", mark: (end: ">"), stroke: hot);  badge(11.2, 1.05, "2", green)
-  line("gw.south", (14.0, -1.1), (3.4, -1.1), "l1.north", mark: (end: ">"), stroke: hot)
-  badge(8.7, -1.1, "3", green)
-  line("l1.east", "l2.west", mark: (end: ">"), stroke: lookup); badge(6.3, -2.3, "4", green)
-  line("l2.east", "svc.west", mark: (end: ">"), stroke: miss);  badge(12.1, -2.3, "5", red)
-  line("svc.south", (15.0, -4.5), (9.2, -4.5), "db.north", mark: (end: ">"), stroke: miss)
-  badge(12.1, -4.5, "6", red)
-  content((16.4, -5.6), dlbl("only 5% of reads reach here", sz: 6.4pt, c: red))
-  bracket(0.4, 14.0, -7.0, "hit path budget: 15 + 2 + 0.05 = 17ms p50", purple)
+  line("in.east", "cdn.west", mark: (end: ">"), stroke: hot)
+  line("cdn.east", "l1.west", mark: (end: ">"), stroke: hot)
+  plabel(7.9, 0, "no 304", c: green)
+  line("l1.east", "hit.west", mark: (end: ">"), stroke: lookup)
+  plabel(13.2, 0, "Redis", c: green)
+  line("hit.east", "out.west", mark: (end: ">"), stroke: hot)
+  plabel(17.75, 0, "yes · 95%", c: green, dy: 0.62)
+  line("hit.south", "org.north", mark: (end: ">"), stroke: miss)
+  plabel(17.1, -2.1, "miss · 5%", c: red, dy: 0)
+  content((6.4, -4.2), dlbl("hit-path budget: 15 + 0.05 + 1 = 16ms p50.\nThe miss path costs 56ms and is single-flighted,\nso one expired key cannot become a stampede.", sz: 6.5pt, c: purple))
+  content((10.3, -6.4), dlbl("the origin read populates L1 and L2 on the way back, so the next reader of the same key pays 1ms rather than 56ms", sz: 6.5pt, c: blue))
 }))
+#pcards(
+  [A staleness budget per key class; ETag/`If-None-Match` on the client; Redis `SET NX` for single-flight],
+  [In: `GET /feed` · Out: body or `304`. 95% of reads never reach Postgres; the 5% that do cost 56ms],
+  [CDN (TTL 60s) · in-process LRU · Redis Cluster, 6 shards · Postgres primary · XFetch probabilistic refresh],
+)
 #v(2mm)
 
 #h2("2 · Caching patterns compared", c: purple)

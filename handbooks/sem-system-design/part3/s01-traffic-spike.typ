@@ -49,21 +49,39 @@
 
 #h2("2 · The solution, in the order you do it", c: green)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig S1.1 · the 100× spike response — shed, then decide, then accept-and-queue")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -2.3, 18.4, 2.1, "DEGRADE → QUEUE → DRAIN", green, rgb("#f6fbf7"))
-  rnode(2.6, 1.1, "cli", "clients", "100× burst", purple, w: 3.2, h: 0.95)
-  rnode(7.2, 1.1, "edge", "edge / gateway", "shed by priority", orange, w: 4.0, h: 0.95)
-  rnode(12.4, 1.1, "q", "order intake queue", "accept + ack fast", green, w: 4.6, h: 0.95)
-  cylinder(16.8, 1.1, "db", "primary", orange, w: 2.8, h: 1.0)
-  line("cli.east", "edge.west", mark: (end: ">"), stroke: hot); badge(4.9, 1.65, "1", green)
-  line("edge.east", "q.west", mark: (end: ">"), stroke: hot);   badge(9.8, 1.65, "2", green)
-  line("q.east", "db.west", mark: (end: ">"), stroke: lookup);  badge(14.6, 1.65, "3", orange)
-  content((14.6, 0.35), dlbl("drained at 5,000/s — the DB's real rate", sz: 6.3pt, c: orange))
-  content((7.2, 0.1), dlbl("recommendations, reviews, analytics → 0%", sz: 6.3pt, c: red))
-  content((7.2, -0.5), dlbl("browse → cached · checkout → always admitted", sz: 6.3pt, c: green))
-  bracket(0.6, 17.6, -1.4, "the user sees \"order received\" in 200 ms; fulfilment is async", purple)
+  pprereq(-0.3, 20.7, 3.0, "checkout, browse and recs already separate deployments with separate pools (M28); defended SLO named before the incident")
+
+  ppill(1.3, 0, "burst", "100× in 90s", w: 2.6)
+  pstep(5.38, 0, "det", "burn-rate alert", "fast burn · 2min", st-man, n: 1, actor: "on-call", w: 4.8)
+  pstep(10.55, 0, "shed", "shed non-core", "Envoy · recs → 0%", st-integ, n: 2, actor: "gateway", w: 4.8)
+  pdec(15.33, 0, "dec", "scale or\nshed+queue?")
+  ppill(19.4, 0, "lost", "checkout fails", c: red, w: 3.2)
+
+  pstep(10.2, -3.6, "acc", "202 Accepted", "queue + idem · 200ms", st-auto, n: 3, actor: "order svc", w: 4.8)
+  pstep(4.8, -3.6, "drain", "capped drain", "reserve stock · 5,000/s", st-auto, n: 4, actor: "worker pool", w: 4.8)
+  ppill(18.6, -3.6, "ok", "order confirmed", w: 3.4)
+
+  line("burst.east", "det.west", mark: (end: ">"), stroke: miss)
+  line("det.east", "shed.west", mark: (end: ">"), stroke: hot)
+  line("shed.east", "dec.west", mark: (end: ">"), stroke: hot)
+  line("dec.east", "lost.west", mark: (end: ">"), stroke: except)
+  plabel(18.0, 0, "scale up", c: red, dy: 0.62)
+  line("dec.south", (15.33, -3.6), "acc.east", mark: (end: ">"), stroke: hot)
+  plabel(13.6, -2.4, "shed + queue", c: green, dy: 0.0)
+  line("acc.west", "drain.east", mark: (end: ">"), stroke: lookup)
+  line("acc.south", (10.2, -5.6), (18.6, -5.6), "ok.south", mark: (end: ">"), stroke: async)
+  plabel(14.4, -5.6, "push / email when fulfilled — minutes", c: purple, dy: 0.34)
+
+  ploop("drain.south", "shed.south", -7.6, "backpressure — queue depth caps what the edge admits", c: blue)
 }))
+#pcards(
+  [Per-service connection pools; kill switches wired (M24); "order acceptance ≥ 99.9%" declared as the defended SLO],
+  [In: 50,000 checkouts/s offered · Out: `202` + order id in 200ms for all; ~5,000/s actually fulfilled, confirmation relaxed to minutes],
+  [Envoy edge shedding · Kafka order intake · Postgres primary behind PgBouncer · feature flags · push/email confirmation],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

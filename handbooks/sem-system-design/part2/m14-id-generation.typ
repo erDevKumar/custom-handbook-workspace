@@ -18,23 +18,33 @@
 
 #h2("1 · The options", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M14.1 · minting one Snowflake id, and the two guards that keep it unique")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  content((8.8, 2.9), dlbl("SNOWFLAKE — 64 bits", sz: 8pt, c: blue))
-  let seg(x1, x2, lbl, bits, c) = {
-    rect((x1, 1.6), (x2, 2.4), stroke: 1.2pt + c, fill: white)
-    content(((x1 + x2) / 2, 2.15), dlbl(lbl, sz: 6.4pt, c: ink))
-    content(((x1 + x2) / 2, 1.82), dlbl(bits, sz: 5.8pt, c: c))
-  }
-  seg(0.6, 2.0, "sign", "1", luma(140))
-  seg(2.0, 9.4, "timestamp (ms since epoch)", "41 bits", orange)
-  seg(9.4, 12.6, "machine id", "10 bits", blue)
-  seg(12.6, 16.8, "sequence", "12 bits", green)
-  content((5.7, 1.1), dlbl("~69 years of ms", sz: 6.2pt, c: orange))
-  content((11.0, 1.1), dlbl("1,024 nodes", sz: 6.2pt, c: blue))
-  content((14.7, 1.1), dlbl("4,096 per ms per node", sz: 6.2pt, c: green))
-  bracket(0.6, 16.8, 0.3, "time-ordered prefix -> new rows append to the right of a B-tree", purple)
+  pprereq(-0.4, 20.6, 2.9, "node id leased from etcd (never a config file) · last-issued timestamp persisted · epoch fixed and written down")
+
+  ppill(1.4, 0, "in", "insert()", w: 2.4)
+  pstep(5.3, 0, "clk", "read clock", "CLOCK_REALTIME · 25ns", st-auto, n: 1, actor: "generator", w: 3.6)
+  pdec(9.6, 0, "d", "now ≥ last?", w: 1.8)
+  pstep(14.4, 0, "asm", "assemble 64 bits", "41 ts + 10 node + 12 seq", st-auto, n: 2, actor: "generator", w: 4.2)
+  ppill(19.1, 0, "out", "time-ordered id", w: 3.2)
+
+  pstep(9.7, -3.4, "halt", "refuse to issue", "alarm · fail loud, not silent", st-dec, n: 3, w: 4.6)
+
+  line("in.east", "clk.west", mark: (end: ">"), stroke: hot)
+  line("clk.east", "d.west", mark: (end: ">"), stroke: hot)
+  line("d.east", "asm.west", mark: (end: ">"), stroke: hot)
+  plabel(11.9, 0, "yes", c: green)
+  line("d.south", "halt.north", mark: (end: ">"), stroke: except)
+  plabel(12.3, -1.7, "no — NTP stepped back", c: red, dy: 0)
+  line("asm.east", "out.west", mark: (end: ">"), stroke: hot)
+  ploop("asm.north", "clk.north", 1.95, "seq hit 4,096 in this ms — spin to the next ms", c: purple)
 }))
+#pcards(
+  [A leased, unique 10-bit node id and a monotonic clock. 2⁴¹ ms from the chosen epoch is a 69.7-year commitment],
+  [In: a write with no id · Out: a 64-bit id whose time prefix appends to the right edge of the B-tree — or a loud refusal, never a silent duplicate],
+  [etcd (node-id lease) · NTP in slew mode · the generator library in-process, no network hop per id],
+)
 #v(2mm)
 
 #table(

@@ -222,7 +222,10 @@
   import cetz.draw: *
   rect((x1, y1), (x2, y2),
     stroke: (paint: luma(200), dash: "dashed", thickness: 0.6pt), fill: tint)
-  content((x1 + 1.2, y2 - 0.35), dlbl(name, sz: 7pt, c: c))
+  // White-backed for the same reason as a step's actor label: an arrow crossing
+  // into this lane otherwise runs its stroke straight through the lane title.
+  content((x1 + 1.2, y2 - 0.35),
+    box(fill: white, inset: (x: 1.6pt, y: 0.5pt), dlbl(name, sz: 7pt, c: c)))
 }
 
 // A component box. `name` becomes the CeTZ anchor — use it for every arrow.
@@ -564,3 +567,197 @@
 
   doc
 }
+
+// =============================================================================
+// PROCESS-FLOW SHAPE LANGUAGE
+//
+// A port of the Cocoon AI process-flow-diagram generator's *information model*
+// (github.com/Cocoon-AI/process-flow-diagram-generator) into CeTZ.
+//
+// What was taken: the shape vocabulary and what each shape is allowed to mean —
+// numbered step badges, actor labels above the box, decision diamonds, start/end
+// pills, a dashed prerequisite bar, labelled arrows, loop-backs, rose exception
+// paths, two-row wrap, and the three summary cards under the figure.
+//
+// What was NOT taken, deliberately: its slate-950 dark theme, cyan/violet/amber
+// palette, JetBrains Mono, emoji glyphs and html2canvas export. This book is
+// printed on cream A4. Its step-type colours are remapped onto the 6-pen set so
+// one pen still carries one meaning, and every shape is an anchored CeTZ node so
+// arrows attach by construction rather than by coordinate arithmetic.
+//
+// STEP-TYPE → PEN MAP (pfdg semantic on the left, this book's pen on the right)
+//   start/end     cyan     → blue    structure / boundary
+//   manual        emerald  → green   human-driven step
+//   automated     violet   → purple  system-driven step
+//   integration   amber    → orange  external hop, API, third party
+//   decision      rose     → red     branch point
+//   prerequisite  slate    → luma    context, shown dashed above the flow
+// =============================================================================
+
+// Step-type pens, named so a diagram declares intent rather than a colour.
+#let st-start = blue
+#let st-man   = green
+#let st-auto  = purple
+#let st-integ = orange
+#let st-dec   = red
+
+// Circled step numbers. pfdg puts a numeral on every step so prose can say
+// "step 4" unambiguously; these are the glyphs for that, up to 12 steps.
+#let stepnum = ("①","②","③","④","⑤","⑥","⑦","⑧","⑨","⑩","⑪","⑫")
+
+// ------------------------------------------------------------------- A STEP --
+// The workhorse. A numbered step box: actor label above, title, tech/cost
+// subtitle, and a step-number badge pinned to its top-left corner.
+//
+//   n     step number (0 suppresses the badge, for context boxes)
+//   actor who performs it — "DRIVER APP", "SCHEDULER", "" for none
+//   `name` is the CeTZ anchor. Always attach arrows to it, never to coordinates.
+#let pstep(x, y, name, title, sub, c, n: 0, actor: "", w: 3.4, h: 1.25) = {
+  import cetz.draw: *
+  rect((x - w/2, y - h/2), (x + w/2, y + h/2),
+    stroke: 1.3pt + c, radius: 0.12, fill: white, name: name)
+  // White-backed: a vertical arrow dropping onto this box from a decision above
+  // otherwise runs its stroke straight through the actor text. Costs nothing
+  // when there is no arrow, and keeps the label legible when there is.
+  if actor != "" {
+    content((x, y + h/2 + 0.34),
+      box(fill: white, inset: (x: 1.4pt, y: 0.4pt), dlbl(upper(actor), sz: 6pt, c: luma(120))))
+  }
+  if sub != "" {
+    content((x, y + 0.14), dlbl(title, sz: 8pt, c: ink))
+    content((x, y - 0.3), dlbl(sub, sz: 6.3pt, c: c))
+  } else {
+    content((x, y - 0.06), dlbl(title, sz: 8pt, c: ink))
+  }
+  // The badge lives INSIDE the box's top-left corner. Hanging it outside put it
+  // in the same band as the actor label and the incoming arrow's label, and all
+  // three collided; inside, the box reserves the space by construction.
+  if n > 0 {
+    circle((x - w/2 + 0.33, y + h/2 - 0.3), radius: 0.26, stroke: 1pt + c, fill: white)
+    content((x - w/2 + 0.33, y + h/2 - 0.3), dlbl(str(n), sz: 6.2pt, c: c))
+  }
+}
+
+// ---------------------------------------------------------------- A DECISION --
+// A diamond. pfdg's first-class branch point: the question goes inside, and the
+// two outcomes are labelled on the arrows leaving it (use `plabel`).
+// Anchors: use "<name>.north"/.south/.east/.west — the diamond's points.
+// A closed CeTZ `line` exposes only a "centroid" anchor, so the compass points
+// are declared explicitly. Without them `pdec(..).west` panics — which is
+// exactly the hand-placed-coordinate failure the anchor rule exists to prevent.
+#let pdec(x, y, name, q, c: red, w: 2.0, h: 1.1) = {
+  import cetz.draw: *
+  line((x, y + h), (x + w, y), (x, y - h), (x - w, y),
+    close: true, stroke: 1.3pt + c, fill: white)
+  group(name: name, {
+    anchor("center", (x, y))
+    anchor("north",  (x, y + h))
+    anchor("south",  (x, y - h))
+    anchor("east",   (x + w, y))
+    anchor("west",   (x - w, y))
+  })
+  content((x, y), dlbl(q, sz: 7pt, c: c))
+}
+
+// ------------------------------------------------------------ START / END --
+// A pill. Process boundaries only — where the flow begins and where it lands.
+#let ppill(x, y, name, label, c: blue, w: 2.6, h: 0.8) = {
+  import cetz.draw: *
+  rect((x - w/2, y - h/2), (x + w/2, y + h/2),
+    stroke: 1.5pt + c, radius: h/2, fill: white, name: name)
+  content((x, y), dlbl(label, sz: 7.5pt, c: c))
+}
+
+// ------------------------------------------------------- PREREQUISITE BAR --
+// A dashed band above the flow holding what must already be true. pfdg shows
+// this so a diagram states its own preconditions instead of implying them.
+#let pprereq(x1, x2, y, items, h: 0.8) = {
+  import cetz.draw: *
+  rect((x1, y - h/2), (x2, y + h/2),
+    stroke: (paint: luma(150), dash: "dashed", thickness: 0.7pt),
+    radius: 0.1, fill: luma(250))
+  content((x1 + 0.9, y), dlbl("PREREQ", sz: 6pt, c: luma(120)))
+  content(((x1 + x2)/2 + 0.6, y), dlbl(items, sz: 6.8pt, c: luma(90)))
+}
+
+// ------------------------------------------------------------ ARROW LABELS --
+// pfdg labels the arrow, not just the box: "output → input", "yes", "on 429".
+// What flows matters as much as what connects.
+// `y` is the ARROW's y. The label is lifted clear of the line by default so it
+// never sits on the stroke; pass dy: -0.42 to drop it under a return path.
+#let plabel(x, y, t, c: luma(110), dy: 0.3) = {
+  import cetz.draw: *
+  // White-backed: an arrow routed across the label's position would otherwise
+  // strike through the text. Same reason as the actor and swimlane labels.
+  content((x, y + dy),
+    box(fill: white, inset: (x: 1.5pt, y: 0.4pt), dlbl(t, sz: 6.3pt, c: c)))
+}
+
+// ------------------------------------------------------------ EXTRA STROKES --
+// Adds to the existing hot/lookup/miss/async/cold set. `except` is pfdg's rose
+// dashed exception path; `wrap` is its dashed row-continuation connector.
+#let except = (paint: red,     thickness: 1.0pt, dash: "dashed")
+#let wrap   = (paint: luma(140), thickness: 1.1pt, dash: "dashed")
+#let loopbk = (paint: blue,    thickness: 1.1pt, dash: "dashed")
+
+// --------------------------------------------------------------- LOOP-BACK --
+// A cyclical return path routed clear of the row, for always-on processes:
+// monitor → act → re-monitor. Routes over the top (`above: true`) or under.
+// `y` is the rail the return path travels along. Route it OUTSIDE the band the
+// actor labels occupy (roughly box-top + 0.7) or the dashes cross the text.
+// Prefer `.east`/`.west` as the TARGET over `.north`: a loop dropping onto a
+// box top runs its vertical segment straight through that box's actor label.
+// The label is centred on that rail, in a white-backed box so the dashes do not
+// run through the words.
+#let ploop(from, to, y, label, c: blue) = {
+  import cetz.draw: *
+  line(from, ((), "|-", (0, y)), ((to, "|-", (0, y))), to,
+    mark: (end: ">"), stroke: (paint: c, thickness: 1.1pt, dash: "dashed"))
+  if label != "" {
+    content(((from, 50%, to), "|-", (0, y)),
+      box(fill: white, inset: (x: 1.6pt, y: 0.6pt), dlbl(label, sz: 6.2pt, c: c)))
+  }
+}
+
+// ------------------------------------------------------------ SUMMARY CARDS --
+// The three cards pfdg places under every diagram. They carry the operational
+// context a flow picture cannot: what must be true first, what data crosses the
+// boundary, and which systems are involved. Typst blocks, not CeTZ — they are
+// prose beneath the figure, not part of it.
+#let pcards(prereq, io, tools) = grid(
+  columns: (1fr, 1fr, 1fr), gutter: 2.5mm,
+  block(inset: 2.2mm, radius: 2pt, fill: luma(249), stroke: (left: 1.8pt + luma(160)), width: 100%)[
+    #text(size: 6.6pt, fill: luma(110), weight: "bold")[PREREQUISITES] \
+    #text(size: 7.4pt)[#prereq]
+  ],
+  block(inset: 2.2mm, radius: 2pt, fill: rgb("#f6fbf7"), stroke: (left: 1.8pt + green), width: 100%)[
+    #text(size: 6.6pt, fill: green, weight: "bold")[INPUTS / OUTPUTS] \
+    #text(size: 7.4pt)[#io]
+  ],
+  block(inset: 2.2mm, radius: 2pt, fill: rgb("#fdf7f2"), stroke: (left: 1.8pt + orange), width: 100%)[
+    #text(size: 6.6pt, fill: orange, weight: "bold")[SYSTEMS] \
+    #text(size: 7.4pt)[#tools]
+  ],
+)
+
+// --------------------------------------------------------------- A LEGEND --
+// Prints the stroke semantics under a figure, so a reader meeting their first
+// diagram learns the line language once. `pairs` is ((label, stroke),..).
+#let plegend(..pairs) = {
+  let ps = pairs.pos()
+  align(center, cetz.canvas(length: 0.8cm, {
+    import cetz.draw: *
+    let x = 0
+    for (lab, s) in ps {
+      line((x, 0), (x + 1.0, 0), stroke: s)
+      content((x + 1.1, 0), dlbl(lab, sz: 6.2pt, c: luma(100)), anchor: "west")
+      x += 1.3 + 0.19 * lab.len()
+    }
+  }))
+}
+
+// ------------------------------------------------------------- FIGURE TITLE --
+// A caption line above a diagram: its number and what it shows. pfdg's header.
+#let pfig(t, c: blue) = block(above: 1.5mm, below: 1.2mm)[
+  #text(font: headfont, size: 8pt, fill: c)[#ico-diag #h(1mm) #t]
+]

@@ -15,45 +15,44 @@
 ]
 #v(2mm)
 
-#h2("1 · The three encodings", c: blue)
+#h2("1 · The ingest and query path", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M15.1 · a position ping becomes an indexed cell, and a nearby-search reads it back")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  // geohash grid
-  content((2.6, 2.9), dlbl("GEOHASH — rectangles", sz: 7.5pt, c: blue))
-  for i in range(4) { for j in range(4) {
-    rect((0.8 + i * 0.9, 0.2 + j * 0.6), (1.7 + i * 0.9, 0.8 + j * 0.6),
-      stroke: 0.7pt + luma(160))
-  }}
-  rect((2.6, 1.4), (3.5, 2.0), stroke: 1.4pt + blue, fill: rgb("#dbe9f7"))
-  content((2.6, -0.4), dlbl("prefix = containment", sz: 6.3pt, c: blue))
-  content((2.6, -1.0), dlbl("but cells distort near poles", sz: 6.3pt, c: red))
+  pprereq(-0.4, 20.6, 2.6, "one encoding chosen for the whole fleet · resolution fixed (H3 r8 ≈ 0.74 km²) · history goes to a log, never the hot table")
 
-  // S2 cells
-  content((8.6, 2.9), dlbl("S2 — cube-projected quadtree", sz: 7.5pt, c: orange))
-  circle((8.6, 1.2), radius: 1.5, stroke: 1.2pt + luma(150))
-  for (a, b) in ((7.4, 1.0), (8.0, 1.6), (8.8, 0.8), (9.3, 1.5)) {
-    rect((a, b), (a + 0.55, b + 0.45), stroke: 1pt + orange)
-  }
-  content((8.6, -0.4), dlbl("64-bit cell id, 31 levels", sz: 6.3pt, c: orange))
-  content((8.6, -1.0), dlbl("near-uniform area globally", sz: 6.3pt, c: green))
+  // ingest row
+  ppill(1.4, 0, "fix", "GPS fix", w: 2.4)
+  pdec(5.4, 0, "mv", "moving?", w: 1.9)
+  pstep(10.6, 0, "enc", "encode cell", "H3 r8 · 1µs on device", st-auto, n: 1, actor: "driver app", w: 3.8)
+  pstep(15.2, 0, "hot", "write current", "Redis GEO · 0.3ms", st-man, n: 2, actor: "ingest", w: 3.6)
+  ppill(19.0, 0, "log", "Kafka track log", w: 3.0, c: orange)
 
-  // H3 hexagons
-  content((14.6, 2.9), dlbl("H3 — hexagons", sz: 7.5pt, c: green))
-  let hex(cx, cy, r, c) = {
-    let pts = ()
-    for k in range(6) {
-      pts.push((cx + r * calc.cos(k * 60deg), cy + r * calc.sin(k * 60deg)))
-    }
-    line(..pts, close: true, stroke: 1pt + c)
-  }
-  hex(14.6, 1.2, 0.55, green)
-  for k in range(6) {
-    hex(14.6 + 0.95 * calc.cos(k * 60deg + 30deg), 1.2 + 0.95 * calc.sin(k * 60deg + 30deg), 0.55, luma(150))
-  }
-  content((14.6, -0.4), dlbl("all neighbours equidistant", sz: 6.3pt, c: green))
-  content((14.6, -1.0), dlbl("best for flow / aggregation", sz: 6.3pt, c: green))
+  line("fix.east", "mv.west", mark: (end: ">"), stroke: hot)
+  line("mv.east", "enc.west", mark: (end: ">"), stroke: hot)
+  plabel(8.0, 0, "4s", c: green)
+  plabel(8.0, 0, "30s", c: orange, dy: -0.52)
+  line("enc.east", "hot.west", mark: (end: ">"), stroke: hot)
+  line("hot.east", "log.west", mark: (end: ">"), stroke: async)
+
+  // query row
+  pstep(4.2, -3.4, "q", "rider's cell", "H3 latLngToCell · 1µs", st-auto, n: 3, actor: "search", w: 4.0)
+  pstep(9.4, -3.4, "ring", "+ kRing(1)", "7 cells, never 1 · 0.1ms", st-auto, n: 4, actor: "search", w: 4.0)
+  pstep(14.6, -3.4, "hav", "haversine filter", "~40 candidates · 0.05ms", st-man, n: 5, actor: "search", w: 4.2)
+  ppill(19.2, -3.4, "res", "drivers ≤ 2 km", w: 3.2, c: green)
+
+  line("hot.south", (15.2, -2.0), (4.2, -2.0), "q.north", mark: (end: ">"), stroke: lookup)
+  plabel(9.2, -2.0, "GEOSEARCH on the live set", c: green)
+  line("q.east", "ring.west", mark: (end: ">"), stroke: hot)
+  line("ring.east", "hav.west", mark: (end: ">"), stroke: hot)
+  line("hav.east", "res.west", mark: (end: ">"), stroke: hot)
 }))
+#pcards(
+  [Adaptive ping interval already cuts 1M writes/s to ~98k. Current state is small enough (1M × 100 B = 100 MB) to keep in memory],
+  [In: (lat, lng, heading, ts) · Out: the live cell → driver set, plus an append-only track for analytics],
+  [H3 / S2 / geohash encoder on device · Redis `GEOADD` / `GEOSEARCH` · Kafka → columnar store · PostGIS only for exact polygons],
+)
 #v(2mm)
 
 #text(size: 9pt)[

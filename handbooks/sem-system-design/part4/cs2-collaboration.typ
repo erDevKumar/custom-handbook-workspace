@@ -76,33 +76,50 @@
 
 #h2("3 · Topology", c: blue)
 
-#align(center, cetz.canvas(length: 0.78cm, {
+#pfig("Fig CS2.1 · topology — the client owns its state, the server owns the order")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.0, 19.0, 1.9, "CLIENT — authoritative for local state", purple, rgb("#f5eefa"))
-  rnode(3.0, 0.6, "c1", "client A", "local CRDT + IndexedDB", purple, w: 4.6, h: 0.85)
-  rnode(9.4, 0.6, "c2", "client B", "local CRDT", purple, w: 3.6, h: 0.85)
-  rnode(15.6, 0.6, "c3", "client C — offline", "queues ops", orange, w: 4.8, h: 0.85)
+  swimlane(-0.4, -1.1, 20.4, 2.1, "CLIENT — authoritative for local state", purple, rgb("#f5eefa"))
+  rnode(3.2, 0.5, "c1", "client A", "local CRDT + IndexedDB", purple, w: 5.0, h: 0.9)
+  rnode(10.0, 0.5, "c2", "client B", "local CRDT", purple, w: 3.8, h: 0.9)
+  rnode(17.2, 0.5, "c3", "client C — offline", "queues ops locally", orange, w: 5.2, h: 0.9)
 
-  swimlane(-0.4, -4.4, 19.0, -1.4, "COLLAB TIER", green, rgb("#f6fbf7"))
-  rnode(3.4, -2.4, "ws", "WS gateway", "sticky per doc", blue, w: 4.0, h: 0.85)
-  rnode(9.0, -2.4, "doc", "doc server", "one owner per doc", green, w: 4.2, h: 0.85)
-  rnode(15.0, -2.4, "authz", "authz (Zanzibar)", "ReBAC · cached", red, w: 4.6, h: 0.85)
+  swimlane(-0.4, -5.0, 20.4, -1.6, "COLLAB TIER", green, rgb("#f6fbf7"))
+  rnode(3.6, -2.7, "ws", "WS gateway", "sticky per doc", blue, w: 4.4, h: 0.9)
+  rnode(10.0, -2.7, "doc", "doc server", "one owner per doc", green, w: 4.6, h: 0.9)
+  rnode(17.0, -2.7, "authz", "authz (Zanzibar)", "ReBAC · cached · 10 ms", red, w: 5.4, h: 0.9)
   line("c1.south", "ws.north", mark: (end: ">"), stroke: hot)
-  line("c2.south", "ws.north", mark: (end: ">"), stroke: hot)
+  line("c2.south", (10.0, -1.95), (3.6, -1.95), "ws.north", mark: (end: ">"), stroke: hot)
   line("ws.east", "doc.west", mark: (end: ">"), stroke: hot)
   line("doc.east", "authz.west", mark: (end: ">"), stroke: lookup)
-  content((9.0, -3.5), dlbl("single doc owner = ordering without consensus", sz: 6.4pt, c: green))
+  badge(6.8, -2.7, "1", green)
+  plabel(6.8, -2.7, "ops batched at 50 ms", c: green, dy: -0.72)
+  badge(13.9, -2.7, "2", green)
+  plabel(13.9, -2.7, "may this user edit?", c: red, dy: -0.72)
+  content((10.6, -4.4), dlbl("one owner per document = total order without consensus", sz: 6.6pt, c: green))
+  line("c3.south", (17.2, -1.95), (14.0, -1.95), mark: (end: ">"), stroke: async)
+  plabel(15.6, -1.95, "on reconnect", c: purple, dy: 0.26)
 
-  swimlane(-0.4, -7.2, 19.0, -4.8, "STORAGE & MEDIA", orange, rgb("#fdf7f2"))
-  cylinder(3.4, -6.0, "op", "op log", orange, w: 3.6, h: 0.95)
-  cylinder(8.4, -6.0, "snap", "snapshots", orange, w: 3.4, h: 0.95)
-  rnode(13.4, -6.0, "s3", "object store", "presigned (M16)", purple, w: 4.0, h: 0.8)
-  rnode(17.6, -6.0, "tr", "transcode", "spot workers", green, w: 3.0, h: 0.8)
-  line("doc.south", (9.0, -5.0), (3.4, -5.0), "op.north", mark: (end: ">"), stroke: hot)
+  swimlane(-0.4, -8.0, 20.4, -5.5, "STORAGE & MEDIA", orange, rgb("#fdf7f2"))
+  cylinder(3.6, -6.8, "op", "op log — source of truth", orange, w: 5.6, h: 1.0)
+  cylinder(10.0, -6.8, "snap", "snapshots / 1,000 ops", orange, w: 5.0, h: 1.0)
+  rnode(15.6, -6.8, "s3", "object store", "presigned (M16)", purple, w: 4.2, h: 0.9)
+  rnode(19.6, -6.8, "tr", "transcode", "spot workers", green, w: 3.2, h: 0.9)
+  line("doc.south", (10.0, -5.7), (3.6, -5.7), "op.north", mark: (end: ">"), stroke: hot)
   line("op.east", "snap.west", mark: (end: ">"), stroke: async)
   line("s3.east", "tr.west", mark: (end: ">"), stroke: async)
-  bracket(0.6, 18.4, -7.6, "local echo 16 ms · remote propagation p99 200 ms", purple)
+  badge(6.0, -5.7, "3", green)
+  plabel(8.6, -5.7, "durable BEFORE broadcast", c: green, dy: 0.46)
+  plabel(6.8, -6.8, "compaction", c: purple, dy: -0.38)
+  bracket(0.4, 20.0, -8.4, "local echo 16 ms · remote propagation p99 200 ms · permission check p99 10 ms", purple)
 }))
+#pcards(
+  [One elected owner per document; the client already holds the full CRDT locally and renders from
+   it without waiting for any server.],
+  [In: batched CRDT ops `(client_id, lamport_clock, payload)`. Out: a durable op-log entry, then
+   fan-out to every other client on the doc.],
+  [WS gateway (sticky by doc) · doc server · Zanzibar-style authz · Postgres/S3 op log · snapshots],
+)
 #v(2mm)
 
 #h2("4 · CRDT vs OT, and the data model", c: purple)
@@ -167,6 +184,75 @@
 #h2("5 · Client & edge contracts", c: green)
 
 #text(size: 8.8pt)[
+  #text(fill: green, weight: "bold")[The defining path is one keystroke's round trip.] It splits
+  in two the instant it starts: the local half must finish in 16 ms and
+  #underline(stroke: 1pt + green)[never consults the server], while the remote half has 200 ms to
+  reach every other client. Reading them as one synchronous path is the mistake that produces a
+  laggy editor.
+]
+#v(1.5mm)
+
+#pfig("Fig CS2.2 · the edit critical path — local echo in 16 ms, remote convergence in 200 ms")
+#align(center, cetz.canvas(length: 0.76cm, {
+  import cetz.draw: *
+  pprereq(-0.2, 20.2, 2.5,
+    "document open · client holds the full CRDT in memory · WS session sticky to the owning doc server")
+
+  // ---- row 1: the local half — no server in it at all
+  ppill(2.2, 0, "in", "user types a character", c: purple, w: 4.4)
+  pstep(8.4, 0, "a", "apply locally", "CRDT merge · < 1 ms", st-man, n: 1, actor: "client A", w: 4.0)
+  pstep(13.6, 0, "b", "render frame", "no ack awaited · 16 ms", st-man, n: 2, actor: "client A", w: 4.2)
+  pstep(18.8, 0, "c", "batch 50 ms", "5 keys → 1 message", st-auto, n: 3, actor: "client A", w: 4.0)
+
+  line("in.east", "a.west", mark: (end: ">"), stroke: hot)
+  line("a.east", "b.west", mark: (end: ">"), stroke: hot)
+  plabel(11.2, 0, "optimistic", c: green, dy: 0.72)
+  line("b.east", "c.west", mark: (end: ">"), stroke: hot)
+
+  // ---- wrap to row 2: the remote half
+  line("c.south", (18.8, -2.0), (2.4, -2.0), (2.4, -3.1), mark: (end: ">"), stroke: wrap)
+  plabel(10.6, -2.0, "(client_id, lamport_clock, payload) over the WebSocket", c: luma(110), dy: 0.28)
+
+  pstep(2.4, -4.4, "d", "authz check", "Zanzibar · cached 10 ms", st-integ, n: 4,
+    actor: "doc server", w: 4.4)
+  pdec(7.6, -4.4, "dc", "still has\nedit rights?", w: 2.2)
+  pstep(13.0, -4.4, "e", "append to op log", "durable BEFORE broadcast", st-auto, n: 5,
+    actor: "doc server", w: 5.2)
+  pstep(18.8, -4.4, "f", "fan out", "to N−1 clients", st-auto, n: 6, actor: "doc server", w: 3.8)
+
+  line("d.east", "dc.west", mark: (end: ">"), stroke: lookup)
+  line("dc.east", "e.west", mark: (end: ">"), stroke: hot)
+  plabel(10.1, -4.4, "yes", c: green, dy: 0.74)
+  line("e.east", "f.west", mark: (end: ">"), stroke: hot)
+  plabel(16.2, -4.4, "seq assigned", c: green, dy: 0.74)
+
+  // ---- wrap to row 3: convergence
+  line("f.south", (18.8, -6.3), (3.2, -6.3), (3.2, -7.3), mark: (end: ">"), stroke: wrap)
+  plabel(10.6, -6.3, "the op is already durable — a crash here loses nothing", c: luma(110), dy: 0.28)
+
+  pstep(3.2, -8.6, "g", "merge remotely", "commutative · idempotent", st-man, n: 7,
+    actor: "clients B…N", w: 4.8)
+  ppill(10.4, -8.6, "out", "all replicas converged", c: green, w: 5.2)
+  line("g.east", "out.west", mark: (end: ">"), stroke: hot)
+  plabel(7.1, -8.6, "p99 200 ms", c: green, dy: 0.46)
+
+  // ---- exception: permission revoked while the socket is open
+  pstep(17.6, -8.6, "x", "sever the socket", "reject op · force reload", st-dec, n: 0,
+    actor: "doc server", w: 4.8)
+  line("dc.south", (7.6, -6.9), (0.3, -6.9), (0.3, -10.4), (17.6, -10.4), "x.south",
+    mark: (end: ">"), stroke: except)
+  plabel(9.0, -10.4, "no — revoked mid-session; checking only at connect time is a leak", c: red, dy: 0.28)
+}))
+#pcards(
+  [Document already open and the full CRDT resident on the client; the WebSocket is sticky to the
+   one doc server that owns this document.],
+  [In: a keystroke. Out: a rendered frame in 16 ms with no server involved, and a durable,
+   sequenced op fanned out to every other editor within 200 ms.],
+  [Local CRDT + IndexedDB · WS gateway · doc server · Zanzibar authz cache · op log],
+)
+#v(2mm)
+
+#text(size: 8.8pt)[
   #text(fill: green, weight: "bold")[Edit channel.] WebSocket, binary framing, ops batched at
   50 ms. Each op carries `(client_id, lamport_clock, payload)`. The client applies locally first
   and #underline(stroke: 1pt + green)[never waits for an ack to render].
@@ -193,7 +279,74 @@
   durable in the log before broadcast; a new owner is elected and replays from the last snapshot.
   Clients reconnect and resync by sequence number — the ops they sent but did not see acked are
   re-sent and deduplicated by `(client_id, clock)`.
+]
+#v(1.5mm)
 
+#pfig("Fig CS2.3 · failure response — the doc server dies with 20 people editing")
+#align(center, cetz.canvas(length: 0.76cm, {
+  import cetz.draw: *
+  pprereq(-0.2, 20.2, 2.5,
+    "every op durable in the log before it was broadcast · snapshot taken every ~1,000 ops")
+
+  // ---- detection
+  ppill(2.2, 0, "in", "doc server process dies", c: red, w: 5.0)
+  pstep(9.0, 0, "a", "detect", "lease expiry · ~2 s", st-dec, n: 1, actor: "gateway", w: 3.4)
+  pstep(14.4, 0, "b", "elect new owner", "one owner, still", st-auto, n: 2,
+    actor: "control plane", w: 4.6)
+  pdec(19.2, 0, "d", "snapshot\nfresh?", w: 2.0)
+
+  line("in.east", "a.west", mark: (end: ">"), stroke: miss)
+  line("a.east", "b.west", mark: (end: ">"), stroke: except)
+  plabel(11.7, 0, "clients see the socket drop", c: red, dy: 0.74)
+  line("b.east", "d.west", mark: (end: ">"), stroke: hot)
+
+  // ---- wrap to mitigation row
+  line("d.south", (19.2, -2.1), (2.4, -2.1), (2.4, -3.1), mark: (end: ">"), stroke: wrap)
+  plabel(10.6, -2.1, "yes — replay bounded to the ops since that snapshot", c: luma(110), dy: 0.28)
+
+  pstep(2.4, -4.4, "e", "load snapshot", "object store", st-auto, n: 3, actor: "new owner", w: 4.0)
+  pstep(7.8, -4.4, "f", "replay the tail", "op log · ≤1,000 ops", st-auto, n: 4,
+    actor: "new owner", w: 4.4)
+  pstep(13.6, -4.4, "g", "clients reconnect", "jittered · last seq sent", st-man, n: 5,
+    actor: "clients", w: 5.0)
+  pstep(19.2, -4.4, "h", "server sends delta", "not the whole doc", st-auto, n: 6,
+    actor: "new owner", w: 4.6)
+
+  line("e.east", "f.west", mark: (end: ">"), stroke: hot)
+  line("f.east", "g.west", mark: (end: ">"), stroke: hot)
+  plabel(10.9, -4.4, "state rebuilt", c: green, dy: 0.74)
+  line("g.east", "h.west", mark: (end: ">"), stroke: hot)
+
+  // ---- wrap to recovery row
+  line("h.south", (19.2, -6.3), (3.4, -6.3), (3.4, -7.3), mark: (end: ">"), stroke: wrap)
+  plabel(10.6, -6.3, "unacked ops are re-sent by the client and deduplicated on (client_id, clock)",
+    c: luma(110), dy: 0.28)
+
+  pstep(3.4, -8.6, "i", "merge duplicates", "idempotent by construction", st-auto, n: 7,
+    actor: "new owner", w: 5.4)
+  ppill(11.6, -8.6, "out", "zero lost edits", c: green, w: 4.4)
+  line("i.east", "out.west", mark: (end: ">"), stroke: hot)
+  plabel(8.6, -8.6, "converged", c: green, dy: 0.34)
+
+  // ---- exception: no usable snapshot — full replay, slow but correct
+  pstep(17.8, -8.6, "x", "full log replay", "slow open, never wrong", st-dec, n: 0,
+    actor: "new owner", w: 4.8)
+  line("d.east", (21.6, 0), (21.6, -11.4), (17.8, -11.4), "x.south",
+    mark: (end: ">"), stroke: except)
+  plabel(10.4, -11.4, "no usable snapshot — degrade on latency, never on correctness", c: red, dy: 0.28)
+
+  ploop("out.south", "i.south", -10.2, "recovered without operator action — clients never saw a lost keystroke")
+}))
+#pcards(
+  [An op was durable in the log before it was ever broadcast; snapshots every ~1,000 ops bound how
+   far the new owner must replay.],
+  [In: the loss of one doc-server process. Out: a new elected owner, resynced clients, and a
+   lost-edit count of zero — the product promise this case study is built around.],
+  [Lease-based ownership · object-store snapshots · op log replay · jittered client reconnect (M10)],
+)
+#v(2mm)
+
+#text(size: 8.8pt)[
   #text(fill: red, weight: "bold")[CRDT state unbounded growth.] Tombstones from deleted text
   accumulate forever. #text(fill: green)[Fix:] periodic compaction once all active clients are
   past a sequence point, plus snapshot-and-truncate. Without this, documents get slower every

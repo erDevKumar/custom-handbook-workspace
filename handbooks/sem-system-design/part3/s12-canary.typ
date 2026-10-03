@@ -52,24 +52,40 @@
 
 #h2("2 · The system", c: green)
 
-#align(center, cetz.canvas(length: 0.8cm, {
+#pfig("Fig S12.1 · canary vs a concurrent baseline — bake time is a statistics problem, and rollback must be boring")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.6, 18.4, 2.0, "CANARY vs CONCURRENT BASELINE", green, rgb("#f6fbf7"))
-  rnode(2.4, 1.0, "lb", "router", "90 / 5 / 5", blue, w: 3.0, h: 0.95)
-  rnode(7.0, 1.7, "prod", "production v1", "90%", green, w: 3.4, h: 0.7)
-  rnode(7.0, 0.7, "base", "baseline v1", "5% — control", purple, w: 3.4, h: 0.7)
-  rnode(7.0, -0.3, "can", "canary v2", "5% — treatment", orange, w: 3.4, h: 0.7)
-  for t in ("prod", "base", "can") { line("lb.east", t + ".west", mark: (end: ">"), stroke: hot) }
-  rnode(12.6, 0.7, "an", "analysis", "Mann-Whitney / z-test", purple, w: 4.0, h: 0.95)
-  line("base.east", "an.west", mark: (end: ">"), stroke: lookup)
-  line("can.east", "an.west", mark: (end: ">"), stroke: lookup)
-  rnode(17.0, 1.3, "pro", "promote", "", green, w: 2.6, h: 0.65)
-  rnode(17.0, 0.1, "rb", "rollback", "", red, w: 2.6, h: 0.65)
-  line("an.east", "pro.west", mark: (end: ">"), stroke: hot)
-  line("an.east", "rb.west", mark: (end: ">"), stroke: miss)
-  content((9.0, -1.1), dlbl("baseline is the SAME old code — isolates the release from everything else",
-    sz: 6.6pt, c: purple))
+  pprereq(-0.3, 20.7, 3.0, "every schema change backwards-compatible; a business metric beside error rate and latency; rollback under 2min")
+
+  ppill(1.41, 0, "rel", "v2 release", w: 2.6)
+  pstep(5.57, 0, "split", "90 / 5 / 5 split", "baseline = SAME old code", st-start, n: 1, actor: "router", w: 4.8)
+  pstep(10.84, 0, "bake", "bake 33 min", "~1,000 canary errors", st-auto, n: 2, actor: "pipeline", w: 4.8)
+  pstep(16.09, 0, "an", "compare the shape", "Mann-Whitney + z-test", st-auto, n: 3, actor: "analysis", w: 4.8)
+  pdec(16.0, -3.8, "sig", "canary worse,\nsignificantly?")
+  pstep(10.4, -3.8, "ramp", "graduated promote", "25% → 50% → 100%", st-auto, n: 4, actor: "pipeline", w: 4.8)
+  ppill(4.0, -3.8, "live", "v2 at 100%", w: 2.6)
+  pstep(16.2, -7.2, "rb", "auto rollback", "< 2min, code only", st-integ, n: 5, actor: "pipeline", w: 4.8)
+  ppill(8.2, -7.2, "stuck", "schema not reversible", c: red, w: 4.5)
+
+  line("rel.east", "split.west", mark: (end: ">"), stroke: hot)
+  line("split.east", "bake.west", mark: (end: ">"), stroke: hot)
+  line("bake.east", "an.west", mark: (end: ">"), stroke: hot)
+  line("an.south", (16.09, -2.0), (16.0, -2.0), "sig.north", mark: (end: ">"), stroke: lookup)
+  line("sig.west", "ramp.east", mark: (end: ">"), stroke: hot)
+  plabel(13.6, -2.6, "no", c: green, dy: 0.0)
+  line("ramp.west", "live.east", mark: (end: ">"), stroke: hot)
+  line("sig.south", "rb.north", mark: (end: ">"), stroke: except)
+  plabel(16.1, -5.5, "yes — ~1.75min of full-traffic damage", c: red, dy: 0.0)
+  line("rb.west", "stuck.east", mark: (end: ">"), stroke: except)
+  plabel(11.3, -7.2, "a dropped column does not revert", c: red, dy: 0.46)
+
+  ploop("rb.west", "split.south", -8.9, "re-canary the fix from 5% — never straight back to 100%", c: blue)
 }))
+#pcards(
+  [A concurrent baseline deployment of the old version; statistical bake time computed from the real error rate, not a habit; nothing irreversible in the release],
+  [In: 10,000 RPS, 5% to canary and 5% to baseline, baseline error rate 0.1% · Out: a defensible promote-or-rollback verdict in ~33 minutes, for ~1.75 minutes of full-traffic-equivalent damage],
+  [Traffic-splitting router · concurrent baseline of v1 · Mann-Whitney U on latency, two-proportion z-test on errors · business metric (checkout completion, search CTR) · automated rollback],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

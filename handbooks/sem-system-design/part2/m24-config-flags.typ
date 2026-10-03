@@ -16,24 +16,41 @@
 
 #h2("1 · Push vs pull, and why both exist", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M24.1 · the ruleset is fetched; the flag is evaluated in-process — and what happens when the fetch fails")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.9, 9.0, 2.2, "PULL — simple, bounded staleness", blue, rgb("#f4f8fd"))
-  rnode(2.4, 1.1, "c1", "client", "poll every 60 s", blue, w: 3.0, h: 0.85)
-  rnode(6.6, 1.1, "s1", "config svc", "ETag → 304", blue, w: 3.2, h: 0.85)
-  line("c1.east", "s1.west", mark: (end: ">"), stroke: lookup)
-  content((4.4, -0.1), dlbl("stale up to the poll interval", sz: 6.3pt, c: orange))
-  content((4.4, -0.75), dlbl("works everywhere, no connection held", sz: 6.3pt, c: green))
-  content((4.4, -1.4), dlbl("N clients x 1/60s = constant load floor", sz: 6.3pt, c: purple))
+  pprereq(-0.4, 20.6, 2.6, "defaults compiled into the binary · last-known-good ruleset cached on disk · kill-switch check sits before the feature it guards")
 
-  swimlane(9.8, -1.9, 18.4, 2.2, "PUSH — instant, needs a connection", green, rgb("#f6fbf7"))
-  rnode(12.4, 1.1, "c2", "client", "SSE / WebSocket", green, w: 3.2, h: 0.85)
-  rnode(16.4, 1.1, "s2", "config svc", "broadcasts delta", green, w: 3.2, h: 0.85)
-  line("s2.west", "c2.east", mark: (end: ">"), stroke: hot)
-  content((14.4, -0.1), dlbl("propagates in < 1 s", sz: 6.3pt, c: green))
-  content((14.4, -0.75), dlbl("but you now hold N connections (M10)", sz: 6.3pt, c: red))
-  content((14.4, -1.4), dlbl("must fall back to polling when disconnected", sz: 6.3pt, c: purple))
+  ppill(1.9, 0, "fg", "app foreground", w: 3.2)
+  pstep(6.6, 0, "fetch", "fetch ruleset", "`If-None-Match` → 304 · ~200 B", st-integ, n: 1, actor: "sdk", w: 5.0)
+  pdec(12.0, 0, "d", "ruleset arrived?", w: 2.3)
+  pstep(17.6, 0, "cache", "swap in memory", "no per-flag network call", st-auto, n: 2, actor: "sdk", w: 4.8)
+  pstep(12.0, -3.6, "static", "fail static", "last known good from disk · 0ms", st-dec, n: 3, w: 5.0)
+
+  line("fg.east", "fetch.west", mark: (end: ">"), stroke: hot)
+  line("fetch.east", "d.west", mark: (end: ">"), stroke: lookup)
+  line("d.east", "cache.west", mark: (end: ">"), stroke: hot)
+  plabel(14.9, 0, "yes", c: green)
+  line("d.south", "static.north", mark: (end: ">"), stroke: except)
+  plabel(16.0, -1.8, "no — never fail closed", c: red, dy: 0)
+
+  pstep(4.4, -7.0, "ev", "evaluate locally", "murmur3(flag + user_id) % 100", st-auto, n: 4, actor: "sdk", w: 5.0)
+  pstep(11.4, -7.0, "edge", "decide once at the edge", "propagated in request context", st-man, n: 5, actor: "gateway", w: 5.8)
+  ppill(18.0, -7.0, "out", "one consistent variant", w: 4.8, c: green)
+
+  line("cache.south", (17.6, -5.4), (4.4, -5.4), "ev.north", mark: (end: ">"), stroke: wrap)
+  plabel(10.9, -5.4, "10,000 RPS × 5 checks = 50,000 evaluations/s, none of them a network call", c: luma(110))
+  line("static.south", "edge.north", mark: (end: ">"), stroke: miss)
+  plabel(13.3, -5.9, "stale but serving", c: red, dy: 0)
+  line("ev.east", "edge.west", mark: (end: ">"), stroke: hot)
+  line("edge.east", "out.west", mark: (end: ">"), stroke: hot)
+  ploop("out.east", "fg.south", -8.8, "1M clients × 1/60s = 16,667 req/s constant floor, plus the reconnect spike", c: blue)
 }))
+#pcards(
+  [Bucketing hashes the flag key alongside the user id, so the same unlucky cohort does not receive every experiment],
+  [In: one ruleset per poll (~200 B with ETag) · Out: a deterministic, sticky variant decided once per request],
+  [Config service behind a CDN · SSE/WebSocket push for kill switches, polling as the fallback · on-disk cache + compiled defaults],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

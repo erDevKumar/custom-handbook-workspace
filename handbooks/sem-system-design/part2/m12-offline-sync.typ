@@ -17,28 +17,35 @@
 
 #h2("1 · The sync loop", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M12.1 · the sync loop — the local write is instant, the conflict is decided server-side")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.6, 9.0, 2.6, "DEVICE", purple, rgb("#f5eefa"))
-  rnode(2.3, 1.7, "ui", "UI", "reads local only", purple, w: 3.0, h: 0.85)
-  cylinder(2.3, 0.0, "local", "SQLite / Room", purple, w: 3.6, h: 1.1)
-  rnode(6.6, 0.0, "oq", "outbound queue", "pending mutations", orange, w: 3.4, h: 1.0)
-  line("ui.south", "local.north", mark: (end: ">"), stroke: hot); badge(2.3, 0.85, "1", green)
-  line("local.east", "oq.west", mark: (end: ">"), stroke: hot);   badge(4.6, 0.0, "2", green)
-  content((4.4, -1.2), dlbl("write is local + instant — UI never waits", sz: 6.4pt, c: green))
+  pprereq(-0.3, 20.9, 2.6, "every mutation idempotent and carrying a client-generated id; the cursor issued by the server, never by a device clock")
 
-  swimlane(9.8, -1.6, 18.4, 2.6, "SERVER", green, rgb("#f6fbf7"))
-  rnode(12.6, 1.4, "api", "sync API", "push + pull delta", green, w: 3.8, h: 0.9)
-  cylinder(16.2, 1.4, "srv", "authoritative", green, w: 3.2, h: 1.0)
-  rnode(12.6, -0.5, "res", "conflict resolver", "LWW | CRDT | manual", red, w: 4.2, h: 0.95)
-  line("oq.east", "api.west", mark: (end: ">"), stroke: async);  badge(10.6, 0.75, "3", purple)
-  line("api.east", "srv.west", mark: (end: ">"), stroke: hot)
-  line("api.south", "res.north", mark: (end: ">"), stroke: miss)
-  content((16.0, -0.5), dlbl("delta since cursor", sz: 6.4pt, c: green))
-  line("res.west", (9.6, -0.5), (2.3, -0.5), "local.south", mark: (end: ">"), stroke: async)
-  badge(6.0, -0.5, "4", purple)
-  bracket(0.6, 17.4, -2.4, "pull by cursor, not by timestamp — clocks disagree", purple)
+  ppill(1.55, 0, "in", "user edits", w: 2.8)
+  pstep(5.7, 0, "loc", "write SQLite", "Room · 2ms, UI never waits", st-man, n: 1, actor: "device", w: 4.4)
+  pstep(10.7, 0, "oq", "outbound queue", "pending offline · sync API", st-auto, n: 2, actor: "device", w: 4.4)
+  pdec(15.3, 0, "cf", "server\naccepts?", w: 1.6)
+  ppill(19.0, 0, "out", "delta pulled", w: 3.5)
+
+  pstep(15.3, -4.0, "res", "resolve the conflict", "LWW | CRDT | manual", st-dec, n: 3, actor: "server", w: 4.8)
+
+  line("in.east", "loc.west", mark: (end: ">"), stroke: hot)
+  line("loc.east", "oq.west", mark: (end: ">"), stroke: hot)
+  line("oq.east", "cf.west", mark: (end: ">"), stroke: async)
+  plabel(13.3, 0, "sync", c: purple, dy: 0.62)
+  line("cf.east", "out.west", mark: (end: ">"), stroke: hot)
+  plabel(17.6, 0, "yes", c: green, dy: 0.62)
+  line("cf.south", "res.north", mark: (end: ">"), stroke: except)
+  plabel(17.0, -2.1, "no", c: red, dy: 0)
+  content((6.4, -4.2), dlbl("rejected means: roll the local row back and tell the\nuser. Never pull on `updated_at > lastSync` — device\nclocks drift and rows written mid-request are skipped.", sz: 6.5pt, c: red))
+  content((10.3, -6.4), dlbl("the merged state is pulled back into SQLite by cursor, so the UI converges without the user ever having waited on the network", sz: 6.5pt, c: blue))
 }))
+#pcards(
+  [A client-generated idempotency id per mutation; a server-issued monotonic cursor; a declared conflict policy per field],
+  [In: a local edit, applied instantly · Out: a server-authoritative delta since the cursor, or a rollback the user sees],
+  [SQLite / Room local store · outbound mutation queue · sync API · LWW, vector-clock or CRDT resolver],
+)
 #v(2mm)
 
 #text(size: 9pt)[

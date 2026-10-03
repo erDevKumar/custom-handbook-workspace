@@ -21,30 +21,37 @@
 // ---------------------------------------------------------------- 6.1 --------
 #h2("6.1  Circuit breaker — the three-state machine", c: red)
 
-#align(center, cetz.canvas(length: 0.88cm, {
+#pfig("Fig 6.1 · the circuit breaker's three states, and the four transitions between them")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  rnode(3.0, 0.4, "cl", "CLOSED", "pass through · count failures", green, w: 4.4, h: 1.3)
-  rnode(9.4, 0.4, "op", "OPEN", "reject instantly · no network", red, w: 4.4, h: 1.3)
-  rnode(15.8, 0.4, "ho", "HALF-OPEN", "admit 1-2 probes only", orange, w: 4.4, h: 1.3)
+  pprereq(-0.6, 20.6, 4.6, "every remote call has a timeout shorter than the caller's own deadline — a timeout counts as a FAILURE")
+
+  pstep(3.0, 0, "cl", "CLOSED", "pass through · count failures", st-man,
+    n: 1, actor: "normal", w: 5.2)
+  pstep(10.4, 0, "op", "OPEN", "reject instantly · no network", st-dec,
+    n: 2, actor: "shed load", w: 5.2)
+  pstep(17.8, 0, "ho", "HALF-OPEN", "admit 1–2 probes only", st-integ,
+    n: 3, actor: "tentative", w: 5.2)
 
   line("cl.east", "op.west", mark: (end: ">"), stroke: miss)
-  badge(6.2, 1.15, "1", red)
-  content((6.2, 1.75), dlbl(">50% of last 100 failed", sz: 6.3pt, c: red))
+  plabel(6.7, 0, ">50% of the", c: red, dy: 0.65)
+  plabel(6.7, 0, "last 100 failed", c: red, dy: 0.25)
   line("op.east", "ho.west", mark: (end: ">"), stroke: 1.1pt + orange)
-  badge(12.6, 1.15, "2", orange)
-  content((12.6, 1.75), dlbl("cooldown 30s elapsed", sz: 6.3pt, c: orange))
+  plabel(14.1, 0, "cooldown", c: orange, dy: 0.65)
+  plabel(14.1, 0, "30s elapsed", c: orange, dy: 0.25)
 
-  line("ho.north", (15.8, 3.3), (3.0, 3.3), "cl.north", mark: (end: ">"), stroke: 1.1pt + green)
-  badge(9.4, 3.3, "3", green)
-  content((9.4, 3.75), dlbl("probe succeeds -> reset counter", sz: 6.5pt, c: green))
+  ploop("ho.north", "cl.north", 2.9, "probe succeeds → counter reset, traffic resumes", c: green)
+  ploop("ho.south", "op.south", -2.1, "probe fails → trip again, restart the cooldown", c: red)
 
-  line("ho.south", (15.8, -1.5), (9.4, -1.5), "op.south", mark: (end: ">"), stroke: miss)
-  badge(12.6, -1.5, "4", red)
-  content((12.6, -1.95), dlbl("probe fails -> trip, restart cooldown", sz: 6.5pt, c: red))
-
-  content((3.0, -1.5), dlbl("success resets the counter", sz: 6.5pt, c: green))
-  bracket(0.8, 18.0, -2.6, "timeout counts as a FAILURE — or a hanging dep never trips the breaker", purple)
+  content((3.0, -1.4), dlbl("success resets the counter", sz: 6.6pt, c: green))
+  content((19.6, -1.4), dlbl("never full traffic", sz: 6.6pt, c: orange))
+  content((10.4, -3.2), dlbl("tune on a RATE and a minimum volume — \"20 failures\" trips during a perfectly healthy spike", sz: 7pt, c: purple))
 }))
+#pcards(
+  [A per-dependency failure counter over a rolling window, a minimum request volume, and a timeout on every call.],
+  [In: outcomes of calls to one dependency. Out: either the real response, or an instant local rejection that touches no network.],
+  [Resilience4j / Polly / Envoy outlier detection · a service mesh · the dependency's own health endpoint.],
+)
 #v(1.5mm)
 
 #text[
@@ -107,22 +114,39 @@
 ]
 #v(2mm)
 
-#align(center, cetz.canvas(length: 0.9cm, {
+#pfig("Fig 6.2 · why jitter matters — the same backoff formula, with and without randomisation")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  content((3.8, 2.3), dlbl("NO JITTER -- synchronised waves", sz: 7.5pt, c: red))
-  line((0.4, 1.4), (7.6, 1.4), stroke: 1.1pt + ink)
-  for x in (1.2, 1.25, 1.3, 2.6, 2.65, 2.7, 4.8, 4.85, 4.9) {
-    line((x, 1.4), (x, 2.0), stroke: 1.4pt + red)
+  swimlane(-0.6, -2.0, 10.0, 2.2, "NO JITTER", red, rgb("#fdf0ee"))
+  content((3.3, 1.85), dlbl("— synchronised waves", sz: 6.6pt, c: red))
+  ppill(2.2, 0.9, "f1", "10k clients fail at t=0", c: red, w: 4.4)
+  pstep(7.4, 0.9, "d1", "sleep = base·2^n", "every client, same instant", st-dec,
+    n: 1, actor: "deterministic", w: 4.8)
+  line("f1.east", "d1.west", mark: (end: ">"), stroke: miss)
+  line((0.8, -1.0), (9.0, -1.0), stroke: 1.1pt + ink)
+  for x in (1.6, 1.66, 1.72, 4.0, 4.06, 4.12, 7.0, 7.06, 7.12) {
+    line((x, -1.0), (x, -0.4), stroke: 1.4pt + red)
   }
-  content((3.8, 0.75), dlbl("every client retries at the same instant", sz: 6.8pt, c: red))
+  content((4.9, -1.6), dlbl("1s · 2s · 4s — the recovering service is hit by 10,000 at once", sz: 6.5pt, c: red))
 
-  content((13.2, 2.3), dlbl("FULL JITTER -- spread out", sz: 7.5pt, c: green))
-  line((9.6, 1.4), (16.8, 1.4), stroke: 1.1pt + ink)
-  for x in (10.1, 10.6, 11.0, 11.7, 12.2, 12.9, 13.4, 14.1, 14.8, 15.3, 16.0, 16.5) {
-    line((x, 1.4), (x, 1.85), stroke: 1.2pt + green)
+  swimlane(10.8, -2.0, 20.6, 2.2, "FULL JITTER", green, rgb("#f6fbf7"))
+  content((14.0, 1.85), dlbl("— spread out", sz: 6.6pt, c: green))
+  ppill(13.6, 0.9, "f2", "10k clients fail at t=0", c: green, w: 4.4)
+  pstep(18.2, 0.9, "d2", "sleep = rand(0, cap)", "n=4 → rand(0, 1600)ms", st-man,
+    n: 1, actor: "randomised", w: 4.8)
+  line("f2.east", "d2.west", mark: (end: ">"), stroke: hot)
+  line((11.4, -1.0), (19.8, -1.0), stroke: 1.1pt + ink)
+  for x in (11.8, 12.3, 12.7, 13.4, 13.9, 14.6, 15.1, 15.8, 16.5, 17.0, 17.7, 18.4, 19.1, 19.5) {
+    line((x, -1.0), (x, -0.5), stroke: 1.2pt + green)
   }
-  content((13.2, 0.75), dlbl("load spread evenly -> service recovers", sz: 6.8pt, c: green))
+  content((15.6, -1.6), dlbl("load spread evenly → the service actually recovers", sz: 6.5pt, c: green))
+  bracket(0.8, 19.8, -2.6, "cap the attempts · never retry a non-idempotent write without a key · retry at ONE layer (3 layers × 3 tries = 27 calls)", purple)
 }))
+#pcards(
+  [A capped attempt count, an idempotency key for any write, and agreement on which single layer owns the retry.],
+  [In: 10,000 simultaneous failures. Out: either three synchronised 10k-request waves, or a smooth arrival curve.],
+  [Client SDK retry policy (AWS SDK, gRPC) · gateway retry budget · load shedding that drops retries before fresh requests.],
+)
 #v(1.5mm)
 
 #text[
@@ -140,24 +164,37 @@
 // ---------------------------------------------------------------- 6.3 --------
 #h2("6.3  Bulkheads — isolating the blast radius", c: blue)
 
-#align(center, cetz.canvas(length: 0.9cm, {
+#pfig("Fig 6.3 · bulkheads — one shared pool fails together, partitioned pools fail alone")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  content((3.9, 2.5), dlbl("SHARED POOL", sz: 8pt, c: red))
-  rect((0.6, -0.9), (7.4, 1.9), stroke: 1.3pt + red, radius: 0.08)
-  content((4.0, 1.45), dlbl("one thread pool (200)", sz: 7pt, c: ink))
-  node(2.2, 0.5, "sa", "svc A", green, w: 1.7, h: 0.8)
-  node(5.6, 0.5, "sb", "svc B\nSLOW", red, w: 1.9, h: 0.8)
-  content((4.0, -0.5), dlbl("B hangs -> all 200 threads blocked -> A dies too", sz: 6.6pt, c: red))
+  swimlane(-0.6, -2.7, 9.8, 2.6, "SHARED POOL", red, rgb("#fdf0ee"))
+  content((4.7, -2.95), dlbl("one slow dep takes the caller down", sz: 6.4pt, c: red))
+  ppill(2.2, 1.2, "in1", "inbound requests", c: red, w: 3.8)
+  pstep(6.8, 1.2, "p1", "one pool · 200", "threads, shared", st-dec, n: 1, actor: "caller", w: 4.0)
+  line("in1.east", "p1.west", mark: (end: ">"), stroke: hot)
+  pstep(2.6, -1.3, "a1", "svc A", "critical — but starved", st-dec, n: 2, actor: "", w: 3.8, h: 1.1)
+  pstep(7.2, -1.3, "b1", "svc B", "optional · HANGS 30s", st-dec, n: 3, actor: "", w: 3.8, h: 1.1)
+  line("p1.south", (6.8, -0.35), (2.6, -0.35), "a1.north", mark: (end: ">"), stroke: except)
+  line("p1.south", "b1.north", mark: (end: ">"), stroke: miss)
+  content((4.9, -2.3), dlbl("B hangs → all 200 threads blocked → A dies too", sz: 6.6pt, c: red))
 
-  content((13.2, 2.5), dlbl("BULKHEADED", sz: 8pt, c: green))
-  rect((9.6, -0.9), (13.0, 1.9), stroke: 1.3pt + green, radius: 0.08)
-  content((11.3, 1.45), dlbl("pool A (150)", sz: 7pt, c: ink))
-  node(11.3, 0.5, "ba", "svc A", green, w: 1.7, h: 0.8)
-  rect((13.4, -0.9), (16.8, 1.9), stroke: 1.3pt + red, radius: 0.08)
-  content((15.1, 1.45), dlbl("pool B (50)", sz: 7pt, c: ink))
-  node(15.1, 0.5, "bb", "svc B\nSLOW", red, w: 1.9, h: 0.8)
-  content((13.2, -0.5), dlbl("B exhausts only its own 50 -> A keeps serving", sz: 6.6pt, c: green))
+  swimlane(10.6, -2.7, 20.6, 2.6, "BULKHEADED", green, rgb("#f6fbf7"))
+  content((15.8, -2.95), dlbl("blast radius stops at the partition", sz: 6.4pt, c: green))
+  ppill(13.4, 1.2, "in2", "inbound requests", c: green, w: 3.8)
+  pstep(18.0, 1.2, "split", "two pools", "150 + 50, per dependency", st-man, n: 1, actor: "caller", w: 4.2)
+  line("in2.east", "split.west", mark: (end: ">"), stroke: hot)
+  pstep(13.6, -1.3, "a2", "svc A · pool 150", "critical, keeps serving", st-man, n: 2, actor: "", w: 4.4, h: 1.1)
+  pstep(18.4, -1.3, "b2", "svc B · pool 50", "optional, exhausts its 50", st-dec, n: 3, actor: "", w: 4.4, h: 1.1)
+  line("split.south", (18.0, -0.35), (13.6, -0.35), "a2.north", mark: (end: ">"), stroke: hot)
+  line("split.south", "b2.north", mark: (end: ">"), stroke: miss)
+  content((16.0, -2.3), dlbl("B exhausts only its own 50 → A keeps serving", sz: 6.6pt, c: green))
+  bracket(0.8, 19.8, -3.9, "the cost is utilisation: partitioned pools idle more, so you provision more total capacity for the same throughput", purple)
 }))
+#pcards(
+  [Dependencies classified critical vs. optional, and a pool implementation that can be sized per dependency.],
+  [In: concurrent calls to a healthy and a hanging dependency. Out: either total thread starvation, or a confined failure.],
+  [Per-dependency thread pools or semaphores (Resilience4j, Hystrix) · separate connection pools · per-route queues.],
+)
 #v(1.5mm)
 
 #text[

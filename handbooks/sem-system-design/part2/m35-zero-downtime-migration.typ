@@ -17,23 +17,37 @@
 
 #h2("1 · Expand–migrate–contract", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M35.1 · expand–migrate–contract — four deploys, and the gate before the irreversible one")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -2.2, 18.4, 2.1, "FOUR DEPLOYS, NEVER ONE", green, rgb("#f6fbf7"))
-  rnode(2.4, 1.1, "e", "1 · EXPAND", "add nullable column", green, w: 4.0, h: 0.95)
-  rnode(7.4, 1.1, "d", "2 · DUAL-WRITE", "write both, read old", orange, w: 4.0, h: 0.95)
-  rnode(12.4, 1.1, "b", "3 · BACKFILL", "batches + verify", orange, w: 4.0, h: 0.95)
-  rnode(17.0, 1.1, "c", "4 · CONTRACT", "drop old", red, w: 3.2, h: 0.95)
-  line("e.east", "d.west", mark: (end: ">"), stroke: hot)
-  line("d.east", "b.west", mark: (end: ">"), stroke: hot)
-  line("b.east", "c.west", mark: (end: ">"), stroke: miss)
-  content((2.4, -0.1), dlbl("old code unaffected", sz: 6.2pt, c: green))
-  content((7.4, -0.1), dlbl("both columns correct", sz: 6.2pt, c: green))
-  content((12.4, -0.1), dlbl("flip reads to new", sz: 6.2pt, c: orange))
-  content((17.0, -0.1), dlbl("only when nothing reads old", sz: 6.2pt, c: red))
-  bracket(0.6, 14.4, -1.1, "every step is independently deployable AND independently reversible", purple)
-  content((9.0, -2.0), dlbl("rollback from any step costs one deploy — never a restore", sz: 6.5pt, c: purple))
+  pprereq(-0.4, 20.6, 2.9, "every writer enumerated — admin tools, batch jobs, triggers · lock_timeout so DDL fails fast · telemetry on the old field")
+
+  ppill(2.2, 0, "in", "schema change", w: 3.8)
+  pstep(7.4, 0, "a", "1 · EXPAND", "ADD COLUMN nullable · instant", st-man, n: 1, actor: "deploy 1", w: 5.8)
+  pstep(15.0, 0, "b", "2 · DUAL-WRITE", "write both, read old", st-man, n: 2, actor: "deploy 2", w: 5.4)
+  pstep(15.0, -3.4, "c", "3 · BACKFILL", "10k batches · ~1.4 h for 500M", st-auto, n: 3, actor: "", w: 6.0)
+  pdec(8.0, -3.4, "d", "drift = 0?", w: 2.0)
+  pstep(2.9, -3.4, "e", "4 · CONTRACT", "DROP COLUMN · irreversible", st-dec, n: 4, actor: "deploy 4", w: 5.2)
+  pstep(15.0, -6.6, "x", "throttle on replica lag", "a backfill that outruns it looks like data loss", st-dec, n: 0, actor: "", w: 8.0)
+
+  line("in.east", "a.west", mark: (end: ">"), stroke: hot)
+  line("a.east", "b.west", mark: (end: ">"), stroke: hot)
+  plabel(11.5, 0, "old pods keep running", c: green, dy: 0.85)
+  line("b.south", "c.north", mark: (end: ">"), stroke: hot)
+  content((16.9, -1.8), dlbl("flip reads\nto new", sz: 6.3pt, c: green))
+  line("c.west", "d.east", mark: (end: ">"), stroke: hot)
+  line("d.west", "e.east", mark: (end: ">"), stroke: miss)
+  plabel(6.2, -3.4, "yes", c: green)
+  line("d.south", (8.0, -6.6), "x.west", mark: (end: ">"), stroke: except)
+  plabel(10.0, -6.6, "no", c: red, dy: 0.3)
+  ploop("x.east", "c.east", -5.0, "re-run the equality count hours apart", c: blue)
+  content((4.0, -6.6), dlbl("rollback from any step is\none deploy, never a restore", sz: 6.5pt, c: purple))
 }))
+#pcards(
+  [Never ship a schema change and the code that needs it in one release. `CREATE INDEX CONCURRENTLY`, `ADD CONSTRAINT NOT VALID` then `VALIDATE` separately.],
+  [In: a desired schema. Out: four independently deployable, independently reversible steps — the drop happening days later, gated on telemetry, not confidence.],
+  [Postgres / MySQL DDL with `lock_timeout` · a batched backfill keyed by primary-key range · replication-lag throttle · client-version read counters (M7)],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

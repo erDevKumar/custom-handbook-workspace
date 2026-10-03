@@ -17,33 +17,36 @@
 
 #h2("1 · Pool, bridge, silo", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M28.1 · one tenant's query through the isolation controls, pool to silo")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  content((3.0, 2.4), dlbl("POOL — shared everything", sz: 7.5pt, c: green))
-  rnode(3.0, 1.3, "p1", "one app, one DB", "tenant_id column", green, w: 4.4, h: 0.85)
-  for (i, x) in ((0, 1.4), (1, 2.6), (2, 3.8), (3, 5.0)).enumerate() {
-    rect((x.at(1) - 0.45, 0.1), (x.at(1) + 0.45, 0.6), stroke: 0.8pt + luma(150))
-    content((x.at(1), 0.35), dlbl("T" + str(i + 1), sz: 5.8pt))
-  }
-  content((3.0, -0.6), dlbl("cheapest · noisy neighbours", sz: 6.2pt, c: orange))
-  content((3.0, -1.2), dlbl("one bad query hits everyone", sz: 6.2pt, c: red))
+  pprereq(-0.4, 20.6, 2.9, "tenant id on the JWT · RLS enabled on every table · a test proving tenant A cannot read tenant B by primary key")
 
-  content((9.2, 2.4), dlbl("BRIDGE — shared app, separate schema", sz: 7.5pt, c: blue))
-  rnode(9.2, 1.3, "b1", "one app", "schema per tenant", blue, w: 4.0, h: 0.85)
-  for (i, x) in ((0, 7.8), (1, 9.2), (2, 10.6)).enumerate() {
-    rect((x.at(1) - 0.5, 0.1), (x.at(1) + 0.5, 0.6), stroke: 0.9pt + blue)
-    content((x.at(1), 0.35), dlbl("sch" + str(i + 1), sz: 5.6pt, c: blue))
-  }
-  content((9.2, -0.6), dlbl("clean data boundary", sz: 6.2pt, c: green))
-  content((9.2, -1.2), dlbl("migrations x N schemas", sz: 6.2pt, c: orange))
+  ppill(1.8, 0, "in", "tenant request", w: 3.6)
+  pstep(6.6, 0, "a", "per-tenant limiter", "Envoy · cap by tier", st-integ, n: 1, actor: "gateway", w: 4.4)
+  pdec(11.7, 0, "d", "over quota?", w: 2.2)
+  pstep(16.9, 0, "b", "SET app.tenant_id", "PgBouncer txn mode", st-auto, n: 2, actor: "repo layer", w: 4.6)
+  pstep(16.7, -3.5, "c", "RLS filters the rows", "Postgres policy, not WHERE", st-auto, n: 3, actor: "", w: 5.6)
+  ppill(8.9, -3.5, "out", "only this tenant's rows", c: green, w: 5.4)
+  pstep(3.2, -3.5, "x", "429 + promote to silo", "above threshold, own stack", st-dec, n: 4, actor: "", w: 5.6)
 
-  content((15.4, 2.4), dlbl("SILO — dedicated stack", sz: 7.5pt, c: purple))
-  for (i, y) in ((0, 1.5), (1, 0.6)).enumerate() {
-    rnode(15.4, y.at(1), "s" + str(i), "tenant " + str(i + 1), "own app + DB", purple, w: 4.0, h: 0.7)
-  }
-  content((15.4, -0.6), dlbl("true isolation · compliance", sz: 6.2pt, c: green))
-  content((15.4, -1.2), dlbl("N stacks to patch and monitor", sz: 6.2pt, c: red))
+  line("in.east", "a.west", mark: (end: ">"), stroke: hot)
+  line("a.east", "d.west", mark: (end: ">"), stroke: hot)
+  line("d.east", "b.west", mark: (end: ">"), stroke: hot)
+  plabel(14.1, 0, "no", c: green)
+  line("b.south", "c.north", mark: (end: ">"), stroke: hot)
+  plabel(17.8, -1.8, "scoped conn", c: green, dy: 0.0)
+  line("c.west", "out.east", mark: (end: ">"), stroke: hot)
+  plabel(12.6, -3.5, "scoped rows", c: green)
+  line("d.south", (11.7, -1.9), (3.2, -1.9), "x.north", mark: (end: ">"), stroke: except)
+  plabel(7.5, -1.9, "yes — noisy neighbour", c: red, dy: -0.45)
+  content((3.2, -5.1), dlbl("the top tenant is 20–40% of load; size the pool from the p99 tenant, never the mean", sz: 6.6pt, c: red))
 }))
+#pcards(
+  [Tenancy enforced below the application: row-level security plus a repository layer that cannot emit an unscoped query. Tenant id in every cache key, set by the client wrapper.],
+  [In: a request carrying a tenant id. Out: rows the database proved belong to that tenant — or a 429, and a silo for anyone past the threshold.],
+  [Envoy per-tenant limits · PgBouncer transaction mode with a per-tenant cap · Postgres RLS + `statement_timeout` · an analytics replica for reports],
+)
 #v(1.5mm)
 
 #table(

@@ -17,25 +17,36 @@
 
 #h2("1 · The strategies", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M26.1 · one release through the canary gate — and where each outcome lands")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.4, 9.0, 2.3, "BLUE / GREEN — instant switch, 2× cost", blue, rgb("#f4f8fd"))
-  rnode(2.2, 1.2, "lb1", "router", "100% → green", blue, w: 3.0, h: 0.85)
-  rnode(6.4, 1.7, "blue", "BLUE v1", "idle, warm", luma(130), w: 3.0, h: 0.75)
-  rnode(6.4, 0.5, "green", "GREEN v2", "live", green, w: 3.0, h: 0.75)
-  line("lb1.east", "green.west", mark: (end: ">"), stroke: hot)
-  content((4.4, -0.4), dlbl("rollback = flip the router back", sz: 6.3pt, c: green))
-  content((4.4, -1.0), dlbl("but DB migrations must work for BOTH", sz: 6.3pt, c: red))
+  pprereq(-0.4, 20.6, 2.9, "expand–contract schema deployed first (M35) · a concurrent v1 baseline fleet · error rate, p99 and a business metric wired")
 
-  swimlane(9.8, -1.4, 18.4, 2.3, "CANARY — gradual, one fleet", orange, rgb("#fdf7f2"))
-  rnode(11.8, 1.2, "lb2", "router", "weighted", blue, w: 2.8, h: 0.85)
-  rnode(15.6, 1.7, "v1", "v1 — 95%", "stable", green, w: 3.2, h: 0.75)
-  rnode(15.6, 0.5, "v2", "v2 — 5%", "canary", orange, w: 3.2, h: 0.75)
-  line("lb2.east", "v1.west", mark: (end: ">"), stroke: hot)
-  line("lb2.east", "v2.west", mark: (end: ">"), stroke: (paint: orange, thickness: 1.2pt))
-  content((14.2, -0.4), dlbl("compare canary metrics vs baseline", sz: 6.3pt, c: orange))
-  content((14.2, -1.0), dlbl("5% → 25% → 50% → 100%, auto-rollback on regression", sz: 6.3pt, c: green))
+  ppill(1.8, 0, "in", "v2 artifact", w: 3.2)
+  pstep(6.2, 0, "a", "weighted route", "Envoy / Argo · 5%", st-integ, n: 1, actor: "mesh router", w: 4.0)
+  pstep(12.9, 0, "b", "bake + compare", "~33 min to 1,000 errors", st-auto, n: 2, actor: "canary analysis", w: 4.8)
+  pdec(17.9, 0, "d", "regression?", w: 2.2)
+
+  pstep(11.6, -3.4, "c", "promote 25 → 50 → 100%", "shift weight · ~10 min", st-man, n: 3, actor: "", w: 6.2)
+  ppill(3.9, -3.4, "out", "v2 is production", c: green, w: 4.2)
+  pstep(17.6, -3.4, "r", "auto-rollback", "weight → 0 · ~2 min", st-dec, n: 4, actor: "pipeline", w: 4.0)
+
+  line("in.east", "a.west", mark: (end: ">"), stroke: hot)
+  line("a.east", "b.west", mark: (end: ">"), stroke: hot)
+  plabel(9.5, 0, "5% of users", c: green)
+  line("b.east", "d.west", mark: (end: ">"), stroke: hot)
+  line("d.east", (20.4, 0), (20.4, -3.4), "r.east", mark: (end: ">"), stroke: except)
+  plabel(20.4, -1.8, "yes", c: red, dy: 0.0)
+  line("d.south", (17.9, -1.75), (11.6, -1.75), "c.north", mark: (end: ">"), stroke: hot)
+  plabel(15.3, -1.75, "no — statistically clear", c: green, dy: -0.45)
+  line("c.west", "out.east", mark: (end: ">"), stroke: hot)
+  content((4.6, -5.0), dlbl("damage = 33 min detect + 2 min rollback at 5% = 1.75 min full-traffic equivalent", sz: 6.6pt, c: red))
 }))
+#pcards(
+  [Schema expanded before the code that needs it. A concurrent v1 baseline, never yesterday's numbers — traffic mix and time of day drift.],
+  [In: v2 image plus a traffic weight. Out: promotion to 100%, or weight → 0 with the binary untouched.],
+  [Argo Rollouts / Flagger · Envoy weighted routing · Prometheus + automated canary analysis · feature flags for the behaviour (M24)],
+)
 #v(1.5mm)
 
 #h2("2 · Trade-off matrix", c: purple)

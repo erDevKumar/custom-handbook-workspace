@@ -19,27 +19,44 @@
 
 #h2("1 · Authorisation code flow with PKCE", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M18.1 · PKCE login, then the refresh cycle and what happens when a token is replayed")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -2.3, 18.4, 2.3, "OAuth 2.0 + PKCE — the only correct flow for mobile/SPA", blue,
-    rgb("#f4f8fd"))
-  rnode(2.6, 1.2, "app", "app", "no secret possible", purple, w: 3.4, h: 0.9)
-  rnode(8.4, 1.2, "auth", "auth server", "verifies challenge", blue, w: 4.0, h: 0.9)
-  rnode(14.6, 1.2, "api", "resource API", "validates token", green, w: 4.0, h: 0.9)
+  pprereq(-0.4, 20.6, 2.6, "public client — no secret in the binary · tokens in Keychain / Keystore, never `localStorage` or a log")
 
-  line("app.east", "auth.west", mark: (end: ">"), stroke: hot); badge(5.5, 1.75, "1", green)
-  content((5.5, 0.55), dlbl("code_challenge = S256(verifier)", sz: 6.1pt, c: blue))
-  line("auth.west", (6.4, -0.1), (2.6, -0.1), "app.south", mark: (end: ">"), stroke: lookup)
-  badge(4.5, -0.1, "2", green)
-  content((5.5, -0.65), dlbl("auth code (useless alone)", sz: 6.1pt, c: purple))
-  line("app.south", (2.6, -1.3), (8.4, -1.3), "auth.south", mark: (end: ">"), stroke: hot)
-  badge(5.5, -1.3, "3", green)
-  content((5.5, -1.85), dlbl("code + verifier -> tokens", sz: 6.1pt, c: green))
-  line("app.north", (2.6, 2.0), (14.6, 2.0), "api.north", mark: (end: ">"), stroke: hot)
-  badge(8.6, 2.0, "4", green)
-  content((11.8, 0.55), dlbl("Bearer access token", sz: 6.1pt, c: green))
-  bracket(0.6, 17.4, -2.6, "PKCE binds the code to the client that requested it — a stolen code is useless", purple)
+  // login row
+  ppill(1.7, 0, "u", "user taps login", w: 3.0)
+  pstep(6.2, 0, "ch", "mint verifier", "S256 challenge · 0.2ms", st-man, n: 1, actor: "app", w: 3.8)
+  pstep(11.2, 0, "as", "consent + code", "auth server · 1 browser RTT", st-integ, n: 2, actor: "auth svc", w: 4.4)
+  pstep(16.6, 0, "tok", "redeem", "code + verifier → tokens", st-integ, n: 3, actor: "auth svc", w: 4.0)
+  ppill(18.4, -2.4, "api", "resource API", w: 3.2, c: green)
+
+  line("u.east", "ch.west", mark: (end: ">"), stroke: hot)
+  line("ch.east", "as.west", mark: (end: ">"), stroke: hot)
+  line("as.east", "tok.west", mark: (end: ">"), stroke: lookup)
+  plabel(14.0, 0, "code", c: purple)
+  line("tok.south", "api.east", mark: (end: ">"), stroke: hot)
+  plabel(20.0, -1.4, "Bearer", c: green, dy: 0)
+
+  // refresh row
+  pdec(3.4, -5.0, "d", "token reused?", w: 2.0)
+  pstep(10.0, -5.0, "rot", "rotate the pair", "new refresh, old invalidated · 2ms", st-auto, n: 4, actor: "auth svc", w: 5.0)
+  ppill(16.6, -5.0, "ok2", "fresh 15-min JWT", w: 3.6, c: green)
+  pstep(3.6, -8.2, "rev", "revoke whole family", "force re-auth · all devices", st-dec, n: 5, w: 5.2)
+
+  line("api.south", (18.4, -3.8), (3.4, -3.8), "d.north", mark: (end: ">"), stroke: wrap)
+  plabel(10.9, -3.8, "after 15 min the access token simply expires", c: luma(110))
+  line("d.east", "rot.west", mark: (end: ">"), stroke: hot)
+  plabel(5.9, -5.0, "no", c: green)
+  line("d.south", "rev.north", mark: (end: ">"), stroke: except)
+  plabel(6.3, -6.6, "yes — stolen, or a lost response", c: red, dy: 0)
+  line("rot.east", "ok2.west", mark: (end: ">"), stroke: hot)
 }))
+#pcards(
+  [JWKS published with `kid`, expected `alg` pinned server-side, NTP healthy so a 30–60 s `nbf`/`exp` leeway suffices],
+  [In: an authorisation code bound to one verifier · Out: a locally-validated 15-min JWT plus a revocable opaque refresh token],
+  [OAuth 2.1 / OIDC provider · Redis token store (20M refresh tokens × 200 B ≈ 4 GB) · iOS Keychain, Android Keystore],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

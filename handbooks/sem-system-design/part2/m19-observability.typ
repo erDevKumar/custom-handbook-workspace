@@ -17,26 +17,44 @@
 
 #h2("1 · The three signals, and the one that links them", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M19.1 · one span's journey from the handset to storage, and the decision that keeps it")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -2.6, 18.4, 2.4, "ONE TRACE, MANY SPANS — W3C traceparent propagates the id", blue,
-    rgb("#f4f8fd"))
-  // waterfall
-  let bar(x1, x2, y, lbl, c) = {
-    rect((x1, y - 0.28), (x2, y + 0.28), stroke: 1pt + c, fill: white)
-    content(((x1 + x2) / 2, y), dlbl(lbl, sz: 6.2pt, c: ink))
-  }
-  bar(1.0, 16.4, 1.6, "mobile app — 980 ms total", purple)
-  bar(2.4, 15.2, 0.85, "API gateway — 940 ms", blue)
-  bar(3.4, 7.0, 0.1, "auth svc — 45 ms", green)
-  bar(7.4, 14.6, 0.1, "order svc — 860 ms", orange)
-  bar(8.4, 10.0, -0.65, "inventory — 120 ms", green)
-  bar(10.4, 14.2, -0.65, "pricing — 690 ms", red)
-  bar(11.0, 13.8, -1.4, "DB query — 640 ms", red)
-  content((16.6, -1.4), dlbl("← the culprit", sz: 6.6pt, c: red))
-  content((9.0, -2.15), dlbl("without a trace, every team sees only their own green dashboard",
-    sz: 6.5pt, c: purple))
+  pprereq(-0.4, 20.6, 2.6, "`traceparent` propagated through every hop — gateway, queue, cron, and the mobile client · telemetry in its own failure domain")
+
+  // emit row — the waterfall, as a flow of hops that each add a span
+  ppill(1.3, 0, "app", "tap → span starts", w: 3.4, c: purple)
+  pstep(6.0, 0, "gw", "API gateway", "+940ms span · 1 of 20", st-integ, n: 1, actor: "edge", w: 3.8)
+  pstep(10.2, 0, "ord", "order svc", "+860ms span · child", st-man, n: 2, actor: "service", w: 3.6)
+  pstep(14.6, 0, "pr", "pricing", "+690ms — the culprit", st-dec, n: 3, actor: "service", w: 3.6)
+  pstep(19.0, 0, "db", "DB query", "640ms of the 980", st-dec, n: 4, actor: "postgres", w: 3.0)
+
+  line("app.east", "gw.west", mark: (end: ">"), stroke: hot)
+  line("gw.east", "ord.west", mark: (end: ">"), stroke: hot)
+  line("ord.east", "pr.west", mark: (end: ">"), stroke: hot)
+  line("pr.east", "db.west", mark: (end: ">"), stroke: miss)
+
+  // collector row
+  pstep(4.2, -3.8, "col", "buffer till complete", "OTel collector · 400k spans", st-auto, n: 5, actor: "collector", w: 5.0)
+  pdec(10.0, -3.8, "d", "error or slow?", w: 2.1)
+  pstep(15.4, -3.8, "keep", "write trace", "object store · 129 GB/day", st-auto, n: 6, actor: "backend", w: 4.2)
+  ppill(19.6, -3.8, "q", "waterfall", w: 2.4, c: green)
+  pstep(10.0, -7.0, "drop", "drop the span", "1% baseline survives · 0 cost", st-dec, n: 7, w: 4.8)
+
+  line("db.south", (19.0, -2.0), (4.2, -2.0), "col.north", mark: (end: ">"), stroke: wrap)
+  plabel(11.5, -2.0, "20 spans/request × 10,000 RPS = 200,000 spans/s", c: luma(110))
+  line("col.east", "d.west", mark: (end: ">"), stroke: hot)
+  line("d.east", "keep.west", mark: (end: ">"), stroke: hot)
+  plabel(12.6, -3.8, "yes", c: green)
+  line("d.south", "drop.north", mark: (end: ">"), stroke: except)
+  plabel(12.6, -5.4, "no — healthy, tail-sampled out", c: red, dy: 0)
+  line("keep.east", "q.west", mark: (end: ">"), stroke: hot)
 }))
+#pcards(
+  [A label allowlist (URLs templated to `/orders/{id}`) and an exporter that drops telemetry rather than stalling app threads],
+  [In: 200,000 spans/s at ~500 B = 8.6 TB/day · Out: ~1.5% retained = 129 GB/day, with every failing trace kept],
+  [OpenTelemetry SDK + collector (tail sampling) · W3C `traceparent` · Prometheus for low-cardinality metrics only],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

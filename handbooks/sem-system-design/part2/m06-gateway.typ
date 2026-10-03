@@ -17,35 +17,36 @@
 
 #h2("1 · Gateway vs. BFF — not the same layer", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M6.1 · one mobile call through the gateway and the BFF that collapses six round trips")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.1, 18.4, 2.3, "CLIENTS", purple, rgb("#f5eefa"))
-  rnode(2.8, 1.2, "ios", "iOS app", "v3.1 … v7.0", purple, w: 3.2, h: 0.95)
-  rnode(8.0, 1.2, "web", "Web SPA", "always latest", purple, w: 3.2, h: 0.95)
-  rnode(13.6, 1.2, "ptnr", "Partner API", "3rd party", purple, w: 3.4, h: 0.95)
+  pprereq(-0.3, 20.9, 2.6, "JWKS cached at the edge; a per-tenant rate budget configured; the BFF owned by the client team")
 
-  rnode(8.0, -2.6, "gw", "API Gateway (Envoy)", "TLS · authn · rate limit · routing", blue,
-    w: 9.0, h: 1.2)
-  line("ios.south", "gw.north", mark: (end: ">"), stroke: hot)
-  line("web.south", "gw.north", mark: (end: ">"), stroke: hot)
-  line("ptnr.south", "gw.north", mark: (end: ">"), stroke: hot)
-  content((15.2, -2.6), dlbl("one edge, shared concerns", sz: 6.4pt, c: blue))
+  ppill(1.6, 0, "in", "iOS request", w: 2.9)
+  pstep(5.9, 0, "gw", "gateway", "Envoy TLS + authn · 2ms", st-start, n: 1, actor: "edge", w: 4.2)
+  pdec(10.6, 0, "tok", "token\nvalid?", w: 1.5)
+  pstep(15.0, 0, "bff", "Mobile BFF", "slim payload · 3ms", st-man, n: 2, actor: "client team", w: 4.0)
+  ppill(19.3, 0, "out", "one response", w: 2.9)
 
-  rnode(3.0, -5.0, "bffm", "Mobile BFF", "slim payload · batched", green, w: 4.2, h: 1.05)
-  rnode(9.4, -5.0, "bffw", "Web BFF", "rich payload", green, w: 3.6, h: 1.05)
-  line("gw.south", (8.0, -4.0), (3.0, -4.0), "bffm.north", mark: (end: ">"), stroke: hot)
-  line("gw.south", (8.0, -4.0), (9.4, -4.0), "bffw.north", mark: (end: ">"), stroke: hot)
+  pstep(15.0, -4.0, "svc", "fan out 6 gRPC calls", "in-DC 0.5ms each, parallel", st-auto, n: 3, actor: "services", w: 4.8)
+  pstep(5.7, -4.0, "rej", "401 at the edge", "no business logic reached", st-dec, n: 4, actor: "edge", w: 4.6)
 
-  rnode(2.4, -7.6, "s1", "users", "gRPC", orange, w: 2.8, h: 0.9)
-  rnode(6.4, -7.6, "s2", "orders", "gRPC", orange, w: 2.8, h: 0.9)
-  rnode(10.4, -7.6, "s3", "catalog", "gRPC", orange, w: 2.8, h: 0.9)
-  rnode(14.4, -7.6, "s4", "pricing", "gRPC", orange, w: 2.8, h: 0.9)
-  line("bffm.south", "s1.north", mark: (end: ">"), stroke: lookup)
-  line("bffm.south", "s2.north", mark: (end: ">"), stroke: lookup)
-  line("bffw.south", "s3.north", mark: (end: ">"), stroke: lookup)
-  line("bffw.south", "s4.north", mark: (end: ">"), stroke: lookup)
-  content((9.0, -8.6), dlbl("BFF fans out and aggregates — client makes ONE call", sz: 6.5pt, c: green))
+  line("in.east", "gw.west", mark: (end: ">"), stroke: hot)
+  line("gw.east", "tok.west", mark: (end: ">"), stroke: hot)
+  line("tok.east", "bff.west", mark: (end: ">"), stroke: hot)
+  plabel(12.65, 0, "yes", c: green, dy: 0.62)
+  line("bff.east", "out.west", mark: (end: ">"), stroke: hot)
+  line("bff.south", "svc.north", mark: (end: ">"), stroke: lookup)
+  plabel(17.2, -2.1, "users, orders, catalog", c: green, dy: 0)
+  line("tok.south", (10.6, -4.0), "rej.east", mark: (end: ">"), stroke: except)
+  plabel(9.3, -4.0, "no", c: red, dy: 0.34)
+  content((10.3, -6.4), dlbl("six direct calls from the phone cost 140ms of pure network; one call plus in-datacentre fan-out costs 73ms", sz: 6.5pt, c: purple))
 }))
+#pcards(
+  [TLS, authn and the global rate budget live at the gateway; fine-grained authorisation lives in the service],
+  [In: 1 mobile request (70ms RTT) · Out: 1 shaped response. 6 fan-out calls at 0.5ms, in parallel, inside the DC],
+  [Envoy gateway · Mobile BFF and Web BFF · users / orders / catalog / pricing over gRPC · cached JWKS],
+)
 #v(2mm)
 
 #h2("2 · What belongs where", c: purple)

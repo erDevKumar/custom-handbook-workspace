@@ -17,19 +17,43 @@
 
 #h2("1 · Anatomy of a cascade", c: red)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M20.1 · the self-sustaining spiral, and the admission check that breaks it")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.6, 18.4, 2.2, "THE DEATH SPIRAL", red, rgb("#fdf0ee"))
-  rnode(2.3, 1.1, "a", "1 · spike", "or a node dies", orange, w: 3.2, h: 0.9)
-  rnode(6.6, 1.1, "b", "2 · queues grow", "latency climbs", orange, w: 3.6, h: 0.9)
-  rnode(11.2, 1.1, "c", "3 · clients time out", "and RETRY", red, w: 3.8, h: 0.9)
-  rnode(15.8, 1.1, "d", "4 · load rises", "work is wasted", red, w: 3.4, h: 0.9)
-  line("a.east", "b.west", mark: (end: ">"), stroke: miss)
-  line("b.east", "c.west", mark: (end: ">"), stroke: miss)
-  line("c.east", "d.west", mark: (end: ">"), stroke: miss)
-  line("d.south", (15.8, -0.5), (2.3, -0.5), "a.south", mark: (end: ">"), stroke: 1.4pt + red)
-  content((9.0, -1.05), dlbl("retries feed the spike — the loop is self-sustaining", sz: 6.6pt, c: red))
+  pprereq(-0.4, 20.6, 2.9, "every route carries a declared priority class · health-check path bypasses shedding, always")
+
+  // the spiral
+  ppill(2.0, 0, "sp", "spike, or a node dies", w: 3.8, c: orange)
+  pstep(6.8, 0, "qg", "queues grow", "bounded at L = λW = 100", st-auto, n: 1, actor: "service", w: 3.8)
+  pstep(11.6, 0, "to", "clients time out", "30s patience · and RETRY", st-dec, n: 2, actor: "client", w: 4.2)
+  pstep(16.6, 0, "wa", "load rises", "every response discarded", st-dec, n: 3, actor: "service", w: 4.0)
+  ploop("wa.east", "sp.east", 1.95, "the cascade outlives its trigger", c: red)
+
+  line("sp.east", "qg.west", mark: (end: ">"), stroke: miss)
+  line("qg.east", "to.west", mark: (end: ">"), stroke: miss)
+  line("to.east", "wa.west", mark: (end: ">"), stroke: miss)
+
+  // the break
+  pstep(3.2, -3.8, "adm", "admission check", "adaptive limiter · 0.01ms", st-man, n: 4, actor: "server", w: 4.2)
+  pdec(8.8, -3.8, "d", "in-flight < 100?", w: 2.3)
+  pstep(14.8, -3.8, "srv", "serve at full speed", "50ms, p99 bounded", st-man, n: 5, actor: "service", w: 5.0)
+  ppill(19.6, -3.8, "ok", "200 OK", w: 2.4, c: green)
+  pstep(8.8, -7.0, "shed", "shed by class", "retries first · 503 + Retry-After", st-dec, n: 6, w: 5.2)
+
+  line("wa.south", (16.6, -2.1), (3.2, -2.1), "adm.north", mark: (end: ">"), stroke: wrap)
+  plabel(9.9, -2.1, "`X-Retry: 2` marks a request the system already failed once", c: luma(110))
+  line("adm.east", "d.west", mark: (end: ">"), stroke: hot)
+  line("d.east", "srv.west", mark: (end: ">"), stroke: hot)
+  plabel(11.6, -3.8, "yes", c: green)
+  line("d.south", "shed.north", mark: (end: ">"), stroke: except)
+  plabel(11.4, -5.4, "no — fail fast, do not queue", c: red, dy: 0)
+  line("srv.east", "ok.west", mark: (end: ">"), stroke: hot)
 }))
+#pcards(
+  [L = λW derived from measured throughput and latency, not picked: 2,000 QPS × 50 ms = 100 concurrent],
+  [In: admitted work only · Out: a full-speed 200 for the admitted subset, a fast 503/429 for the rest],
+  [Netflix `concurrency-limits` (TCP Vegas gradient) · bounded LIFO queue · deadline propagation · retry budget ≈ 10%],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

@@ -17,18 +17,36 @@
 
 #h2("1 · Service identity with mTLS", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M34.1 · identity on both hops — workload mTLS, then a device attestation that is only a signal")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.9, 18.4, 2.1, "SERVICE MESH — identity, not IP address", blue, rgb("#f4f8fd"))
-  rnode(3.0, 1.1, "a", "service A", "SPIFFE id + cert", green, w: 4.0, h: 0.95)
-  rnode(9.2, 1.1, "mesh", "sidecar ↔ sidecar", "mTLS, both verify", blue, w: 4.4, h: 0.95)
-  rnode(15.4, 1.1, "b", "service B", "checks A's identity", green, w: 4.0, h: 0.95)
-  line("a.east", "mesh.west", mark: (end: ">"), stroke: hot)
-  line("mesh.east", "b.west", mark: (end: ">"), stroke: hot)
-  content((9.2, 0.0), dlbl("certs auto-rotated hourly by the mesh CA", sz: 6.4pt, c: purple))
-  content((9.2, -0.7), dlbl("policy: \"A may call B:/orders — nothing else may\"", sz: 6.4pt, c: green))
-  content((9.2, -1.45), dlbl("a stolen IP proves nothing; identity is cryptographic", sz: 6.4pt, c: red))
+  pprereq(-0.4, 20.6, 2.9, "mesh CA issuing hour-long certs automatically · default-deny policy · the root CA expiry tracked as an owned operational risk")
+
+  ppill(2.2, 0, "in", "mobile request", w: 3.8)
+  pstep(7.4, 0, "a", "attest at session start", "Play Integrity · 500–2,000 ms", st-integ, n: 1, actor: "device", w: 6.2)
+  pdec(13.6, -3.4, "d", "verdict ok?", w: 2.1)
+  pstep(17.5, 0, "b", "attested token", "per request · ~0 ms", st-auto, n: 2, actor: "edge", w: 5.0)
+  pstep(8.0, -3.4, "c", "mTLS A → B", "SPIFFE id · 1–2 ms/conn", st-auto, n: 3, actor: "sidecar", w: 5.2)
+  ppill(2.0, -3.4, "out", "server validates anyway", c: green, w: 5.2)
+  pstep(18.0, -6.6, "x", "step-up, not refusal", "elevated monitoring, fail open", st-dec, n: 4, actor: "", w: 5.8)
+
+  line("in.east", "a.west", mark: (end: ">"), stroke: hot)
+  line("a.east", "b.west", mark: (end: ">"), stroke: hot)
+  plabel(13.3, 0, "once per session", c: green)
+  line("b.east", (20.6, 0), (20.6, -3.4), "d.east", mark: (end: ">"), stroke: lookup)
+  line("d.west", "c.east", mark: (end: ">"), stroke: hot)
+  plabel(12.1, -3.4, "a signal, not a gate", c: green, dy: 0.62)
+  line("c.west", "out.east", mark: (end: ">"), stroke: hot)
+  plabel(4.6, -3.4, "default-deny policy", c: green, dy: 0.88)
+  line("d.south", (13.6, -6.6), "x.west", mark: (end: ">"), stroke: except)
+  content((15.5, -5.2), dlbl("rooted, or an outage", sz: 6.3pt, c: red))
+  content((5.6, -6.6), dlbl("a stolen IP proves nothing; sidecars cost ~25–50 GB of RAM\nacross 500 pods, which is a line item in M30", sz: 6.5pt, c: purple))
 }))
+#pcards(
+  [Hour-long certs rotated by the mesh CA — hand-managed certificates expire at 2am on a holiday. Default-deny policy with a test that an unauthorised call is refused.],
+  [In: a device attestation at session start and a workload identity on every hop. Out: an authorised call, or a step-up challenge — never a flat refusal.],
+  [SPIFFE / Istio or Linkerd · Apple App Attest and Play Integrity, ~10M attestations/day at 10M sessions · server-side validation of every claim],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

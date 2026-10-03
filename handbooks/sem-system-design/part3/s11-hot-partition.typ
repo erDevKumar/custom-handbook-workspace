@@ -47,22 +47,39 @@
 
 #h2("2 · The solution", c: green)
 
-#align(center, cetz.canvas(length: 0.8cm, {
+#pfig("Fig S11.1 · one viral key — detection routes reads out of the shard and decomposes the write")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.1, 9.0, 2.2, "READS — replicate the hot key", green, rgb("#f6fbf7"))
-  rnode(2.2, 1.2, "r1", "L1 in every pod", "hot key pinned", green, w: 3.4, h: 0.85)
-  rnode(6.6, 1.2, "r2", "CDN edge", "TTL 5 s", blue, w: 3.0, h: 0.85)
-  line("r1.east", "r2.west", mark: (end: ">"), stroke: hot)
-  content((4.4, 0.25), dlbl("200k reads/s served from memory,", sz: 6.3pt, c: green))
-  content((4.4, -0.35), dlbl("~0 reach the shard", sz: 6.3pt, c: green))
+  pprereq(-0.3, 20.7, 3.0, "a frequency sketch running continuously, not a celebrity list; approximate counts fine for likes, not balances")
 
-  swimlane(9.8, -1.1, 18.4, 2.2, "WRITES — shard the counter", orange, rgb("#fdf7f2"))
-  for (i, x) in ((0, 11.4), (1, 13.2), (2, 15.0), (3, 16.8)).enumerate() {
-    rnode(x.at(1), 1.3, "c" + str(i), "cnt#" + str(i), "", orange, w: 1.6, h: 0.7)
-  }
-  content((14.1, 0.25), dlbl("like → random shard of 100 · 500 writes/s each", sz: 6.3pt, c: orange))
-  content((14.1, -0.35), dlbl("read = SUM(shards), cached 1 s", sz: 6.3pt, c: green))
+  ppill(2.45, 0, "viral", "40% of reads, one post", c: red, w: 4.7)
+  pstep(7.66, 0, "sk", "frequency sketch", "10× on one shard", st-start, n: 1, actor: "detector", w: 4.8)
+  pdec(12.51, 0, "kind", "read skew or\nwrite skew?")
+  pstep(17.37, 0, "rd", "pin to L1 + CDN", "TTL 5s · ~0 hit the shard", st-auto, n: 2, actor: "every pod", w: 4.8)
+
+  pstep(16.6, -3.8, "wr", "100 counter rows", "post:123:likes:0..99", st-auto, n: 3, actor: "like svc", w: 4.8)
+  pstep(10.6, -3.8, "sum", "read = SUM(N)", "1s cache · 500/s a row", st-auto, n: 4, actor: "read svc", w: 4.8)
+  ppill(4.4, -3.8, "served", "200k reads/s, 500/s per row", w: 5.6)
+  ppill(4.4, -7.2, "resh", "resharding fails here", c: red, w: 4.5)
+
+  line("viral.east", "sk.west", mark: (end: ">"), stroke: miss)
+  line("sk.east", "kind.west", mark: (end: ">"), stroke: hot)
+  line("kind.east", "rd.west", mark: (end: ">"), stroke: hot)
+  plabel(14.3, 0, "reads", c: green, dy: 0.44)
+  line("kind.south", (12.51, -1.9), (16.6, -1.9), "wr.north", mark: (end: ">"), stroke: hot)
+  plabel(14.0, -1.9, "writes — decompose the row", c: orange, dy: 0.34)
+  line("wr.west", "sum.east", mark: (end: ">"), stroke: lookup)
+  line("sum.west", "served.east", mark: (end: ">"), stroke: hot)
+  line("sum.south", (10.6, -7.2), "resh.east", mark: (end: ">"), stroke: except)
+  plabel(7.9, -7.2, "every scheme routes one key to one owner", c: red, dy: 0.5)
+
+  ploop("rd.south", "sk.south", -5.6, "re-measure continuously — demote the key when its rate falls back", c: blue)
 }))
+#pcards(
+  [Continuous per-key rate tracking; a CDN in front of the read path; a product decision that the like count may be a second stale],
+  [In: 500,000 reads/s with 40% on one post, and 50,000 likes/s on one row · Out: ~0 hot-key reads reach the shard, and 500 writes/s per counter row instead of 50,000 serialised ones],
+  [Count-min sketch detector · per-pod L1 cache (M5) · CDN edge with a 5s TTL · 100 sharded counter rows · 1s cached SUM · automatic promote and demote],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

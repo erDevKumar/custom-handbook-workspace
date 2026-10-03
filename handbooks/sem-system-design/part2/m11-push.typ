@@ -17,25 +17,34 @@
 
 #h2("1 · The delivery pipeline", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M11.1 · push delivery pipeline — priority queues, and the 410 that must delete a token")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.5, 18.4, 2.3, "FAN-OUT PIPELINE", orange, rgb("#fdf7f2"))
-  rnode(2.4, 1.2, "trig", "trigger", "event / campaign", green, w: 3.4, h: 0.9)
-  rnode(7.0, 1.2, "fan", "fan-out worker", "resolve → tokens", green, w: 4.0, h: 0.9)
-  rnode(12.2, 1.2, "q", "priority queues", "txn | marketing", purple, w: 4.2, h: 0.9)
-  line("trig.east", "fan.west", mark: (end: ">"), stroke: hot); badge(4.7, 1.75, "1", green)
-  line("fan.east", "q.west", mark: (end: ">"), stroke: hot);    badge(9.6, 1.75, "2", green)
+  pprereq(-0.3, 20.9, 2.6, "APNs `.p8` JWT refreshed hourly; FCM service account; separate queues and worker pools per priority class")
 
-  rnode(15.8, -0.4, "send", "sender pool", "HTTP/2 multiplex", blue, w: 3.6, h: 0.9)
-  line("q.south", (12.2, -0.4), "send.west", mark: (end: ">"), stroke: hot)
-  badge(13.9, -0.4, "3", green)
+  ppill(1.7, 0, "in", "campaign", w: 3.1)
+  pstep(6.0, 0, "fan", "resolve to tokens", "fan-out worker · 20k/s", st-man, n: 1, actor: "platform", w: 4.2)
+  pstep(10.8, 0, "q", "priority queues", "txn | marketing · HTTP/2", st-auto, n: 2, actor: "scheduler", w: 4.4)
+  pdec(15.4, 0, "ok", "token\nstill live?", w: 1.6)
+  ppill(19.2, 0, "out", "device wakes", w: 3.1)
 
-  rnode(5.0, -0.5, "apns", "APNs", "token auth · p8", blue, w: 3.0, h: 0.85)
-  rnode(9.0, -0.5, "fcm", "FCM", "HTTP v1", blue, w: 3.0, h: 0.85)
-  line("send.north", (15.8, 0.5), (9.0, 0.5), "fcm.north", mark: (end: ">"), stroke: lookup)
-  content((7.0, -1.25), dlbl("invalid token -> 410 Gone -> DELETE it", sz: 6.4pt, c: red))
-  bracket(0.6, 13.8, -2.2, "transactional sends must never queue behind a marketing blast", purple)
+  pstep(15.4, -4.0, "del", "DELETE the token", "410 Gone / UNREGISTERED", st-dec, n: 3, actor: "platform", w: 5.0)
+
+  line("in.east", "fan.west", mark: (end: ">"), stroke: hot)
+  line("fan.east", "q.west", mark: (end: ">"), stroke: hot)
+  line("q.east", "ok.west", mark: (end: ">"), stroke: hot)
+  line("ok.east", "out.west", mark: (end: ">"), stroke: hot)
+  plabel(17.65, 0, "yes", c: green, dy: 0.62)
+  line("ok.south", "del.north", mark: (end: ">"), stroke: except)
+  plabel(17.1, -2.1, "no", c: red, dy: 0)
+  content((6.4, -4.2), dlbl("one shared queue puts a 10M-device marketing blast\nin front of every login code. Separate queues, pools\nand rate budgets are the cheapest win in this pipeline.", sz: 6.5pt, c: red))
+  content((10.3, -6.4), dlbl("delivery is best-effort on both platforms: APNs silently throttles priority 5, and Doze defers FCM `normal` indefinitely", sz: 6.5pt, c: purple))
 }))
+#pcards(
+  [An hourly-refreshed APNs JWT; FCM OAuth2; a per-class rate budget; a token table you will delete rows from],
+  [In: a trigger · Out: best-effort delivery, 4 KB cap. A `410`/`UNREGISTERED` is an instruction to delete the token now],
+  [APNs over HTTP/2 with `apns-priority` 10/5 · FCM HTTP v1 · separate txn and marketing queues · token store],
+)
 #v(2mm)
 
 #text(size: 9pt)[

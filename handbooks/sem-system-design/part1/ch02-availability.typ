@@ -104,25 +104,34 @@
 // ---------------------------------------------------------------- 2.2 --------
 #h2("2.2  MTBF and MTTR — the two levers", c: orange)
 
-#align(center, cetz.canvas(length: 0.9cm, {
+#pfig("Fig 2.1 · one failure cycle — MTBF is the gap, MTTR is the recovery you actually control")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  line((0, 0), (17.6, 0), stroke: 1.3pt + ink)
-  rect((0.4, -0.4), (5.6, 0.4), stroke: 0.9pt + green, fill: rgb("#d9f0e2"), name: "u1")
-  content("u1.center", dlbl("UP — 30 days", sz: 7.5pt, c: green))
-  rect((5.9, -0.4), (7.0, 0.4), stroke: 0.9pt + red, fill: rgb("#fadbd8"), name: "d1")
-  content("d1.center", dlbl("30m", sz: 6.5pt, c: red))
-  rect((7.3, -0.4), (13.4, 0.4), stroke: 0.9pt + green, fill: rgb("#d9f0e2"), name: "u2")
-  content("u2.center", dlbl("UP — 30 days", sz: 7.5pt, c: green))
-  rect((13.7, -0.4), (14.6, 0.4), stroke: 0.9pt + red, fill: rgb("#fadbd8"), name: "d2")
-  content("d2.center", dlbl("20m", sz: 6pt, c: red))
-  rect((14.9, -0.4), (17.4, 0.4), stroke: 0.9pt + green, fill: rgb("#d9f0e2"))
+  pprereq(-0.6, 20.6, 2.9, "failures are detected automatically — an outage nobody notices has an unbounded MTTR")
 
-  bracket(0.4, 5.6, -1.0, "MTBF = mean time BETWEEN failures (43,200 min)", blue)
-  line((5.9, -1.9), (7.0, -1.9), stroke: 1.2pt + red)
-  content((8.9, -2.35), dlbl("MTTR = mean time TO RECOVER (30 min)", sz: 7pt, c: red))
-  content((13.4, -1.5), dlbl("halving THIS is the cheap lever", sz: 7pt, c: green))
-  content((2.6, 0.95), dlbl("detect -> triage -> mitigate -> verify", sz: 6.5pt, c: purple))
+  ppill(1.9, 0, "up1", "UP · 30 days", w: 3.0)
+  pstep(7.2, 0, "det", "detect", "alert fires · 4 min", st-auto, n: 1, actor: "monitoring", w: 3.4)
+  pstep(11.0, 0, "tri", "triage", "page on-call · 8 min", st-man, n: 2, actor: "on-call", w: 3.4)
+  pstep(14.8, 0, "mit", "mitigate", "rollback / flag · 14 min", st-man, n: 3, actor: "on-call", w: 3.4)
+  pstep(18.6, 0, "ver", "verify", "SLI back green · 4 min", st-man, n: 4, actor: "on-call", w: 3.4)
+
+  line("up1.east", "det.west", mark: (end: ">"), stroke: miss)
+  plabel(4.7, 0, "it breaks", c: red)
+  line("det.east", "tri.west", mark: (end: ">"), stroke: hot)
+  line("tri.east", "mit.west", mark: (end: ">"), stroke: hot)
+  line("mit.east", "ver.west", mark: (end: ">"), stroke: hot)
+
+  ploop("ver.east", "up1.east", 1.9, "service restored — the next 30 days of uptime begin", c: green)
+
+  bracket(0.4, 3.4, -1.3, "MTBF = 43,200 min", blue)
+  bracket(5.5, 20.3, -1.3, "MTTR = 30 min — detect + triage + mitigate + verify. Halving THIS is the cheap lever.", red)
+  content((12.8, -2.9), dlbl("A = MTBF / (MTBF + MTTR) = 43200 / 43230 = 99.93%", sz: 7pt, c: green))
 }))
+#pcards(
+  [Alerting that fires on user-visible symptoms, a tested rollback, and a runbook the on-call has actually run.],
+  [In: a failure at minute 43,200. Out: 30 minutes of downtime, and an availability figure of 99.93%.],
+  [Metrics + alerting stack · pager rotation · one-click rollback or feature-flag kill-switch · the runbook.],
+)
 #v(1.5mm)
 
 #formula("Availability from MTBF and MTTR")[
@@ -152,26 +161,33 @@
 // ---------------------------------------------------------------- 2.3 --------
 #h2("2.3  RTO and RPO — the two questions a business actually asks", c: purple)
 
-#align(center, cetz.canvas(length: 0.9cm, {
+#pfig("Fig 2.2 · a disaster, split into the data you lose (RPO) and the time you are down (RTO)")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  line((0, 0), (17.4, 0), stroke: 1.3pt + ink)
-  // backups along the timeline
-  for x in (1.6, 3.1, 4.6) {
-    line((x, 0.35), (x, -0.35), stroke: 1.1pt + purple)
-    content((x, 0.75), dlbl("bkp", sz: 5.8pt, c: purple))
-  }
-  line((7.8, 1.0), (7.8, -1.0), stroke: 2.2pt + red)
-  content((7.8, 1.45), dlbl("DISASTER", sz: 8pt, c: red))
-  content((4.6, -0.75), dlbl("last good copy", sz: 6.5pt, c: purple))
+  pprereq(-0.6, 20.6, 3.3, "the restore has been rehearsed with a stopwatch — a backup never restored is a hope, not a backup")
 
-  line((12.4, 0.5), (12.4, -0.5), stroke: 1.4pt + green)
-  content((12.4, 0.95), dlbl("service restored", sz: 7pt, c: green))
+  pstep(2.1, 0, "bkp", "snapshot", "last good copy · 00:00", st-auto, n: 1, actor: "scheduler", w: 3.6)
+  pstep(6.4, 0, "writes", "live writes", "accruing, not yet copied", st-man, n: 2, actor: "users", w: 3.6)
+  pdec(10.4, 0, "boom", "DISASTER", w: 1.9)
+  pstep(15.6, 0, "rest", "restore", "detect + decide + restore", st-man, n: 3, actor: "on-call", w: 3.8)
+  ppill(19.4, 0, "ok", "service restored", c: green, w: 3.2)
 
-  bracket(4.6, 7.8, -1.5, "RPO = data you LOSE (writes since last copy)", purple)
-  bracket(7.8, 12.4, -3.0, "RTO = time you are DOWN (detect + decide + restore)", green)
-  content((15.0, -0.8), dlbl("reconcile + backfill", sz: 6.5pt, c: orange))
-  content((2.0, -0.75), dlbl("normal operation", sz: 6.5pt, c: luma(120)))
+  line("bkp.east", "writes.west", mark: (end: ">"), stroke: hot)
+  line("writes.east", "boom.west", mark: (end: ">"), stroke: miss)
+  line("boom.east", "rest.west", mark: (end: ">"), stroke: except)
+  plabel(12.6, 0, "region gone", c: red, dy: 0.42)
+  line("rest.east", "ok.west", mark: (end: ">"), stroke: hot)
+
+  ploop("rest.east", "writes.west", 2.1, "reconcile + backfill the writes that were lost", c: orange)
+
+  bracket(2.1, 10.4, -1.4, "RPO = data you LOSE (every write since the last durable copy)", purple)
+  bracket(10.4, 21.0, -2.9, "RTO = time you are DOWN (detect + decide + restore, at 3am)", green)
 }))
+#pcards(
+  [Durable copies in a different failure domain, valid restore credentials, and a measured — not aspirational — restore time.],
+  [In: a region-level disaster at a known instant. Out: a restored service, minus every write since the last snapshot.],
+  [Snapshot / WAL-archive scheduler · cross-region object store · DR runbook · reconciliation job for the backfill.],
+)
 #v(1.5mm)
 
 #text[

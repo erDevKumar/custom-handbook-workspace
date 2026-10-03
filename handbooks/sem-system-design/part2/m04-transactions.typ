@@ -34,35 +34,36 @@
 ]
 #v(2mm)
 
-#align(center, cetz.canvas(length: 0.84cm, {
+#pfig("Fig M4.1 · saga happy path, and the compensation chain that replaces rollback")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -2.3, 8.4, 3.6, "2PC — blocking", red, rgb("#fdf0ee"))
-  rnode(4.0, 2.6, "co", "coordinator", "single point of failure", red, w: 4.6, h: 0.9)
-  rnode(1.5, 0.7, "p1", "svc A", "LOCKED", orange, w: 2.2, h: 0.85)
-  rnode(4.0, 0.7, "p2", "svc B", "LOCKED", orange, w: 2.2, h: 0.85)
-  rnode(6.5, 0.7, "p3", "svc C", "LOCKED", orange, w: 2.2, h: 0.85)
-  line("co.south", "p1.north", mark: (end: ">"), stroke: 1.1pt + orange)
-  line("co.south", "p2.north", mark: (end: ">"), stroke: 1.1pt + orange)
-  line("co.south", "p3.north", mark: (end: ">"), stroke: 1.1pt + orange)
-  content((4.0, -0.4), dlbl("phase 1: all vote YES, all hold locks", sz: 6.4pt, c: orange))
-  content((4.0, -1.1), dlbl("coordinator dies HERE ->", sz: 6.6pt, c: red))
-  content((4.0, -1.75), dlbl("everyone blocked, locks held, indefinitely", sz: 6.6pt, c: red))
+  pprereq(-0.3, 20.9, 2.6, "every step locally transactional and idempotent; every step has a compensation; saga state durably logged")
 
-  swimlane(9.2, -2.3, 18.4, 3.6, "SAGA — non-blocking, compensating", green, rgb("#f6fbf7"))
-  rnode(11.4, 2.3, "s1", "T1 reserve", "inventory", green, w: 3.0, h: 0.85)
-  rnode(15.6, 2.3, "s2", "T2 charge", "payment", green, w: 3.0, h: 0.85)
-  rnode(15.6, 0.6, "s3", "T3 ship", "fulfilment", red, w: 3.0, h: 0.85)
-  line("s1.east", "s2.west", mark: (end: ">"), stroke: hot)
-  badge(13.5, 2.3, "1", green)
-  line("s2.south", "s3.north", mark: (end: ">"), stroke: hot)
-  badge(15.6, 1.45, "2", green)
-  content((17.6, 0.6), dlbl("FAILS", sz: 6.5pt, c: red))
-  // compensations run backwards
-  line("s3.west", (11.4, 0.6), "s1.south", mark: (end: ">"), stroke: miss)
-  content((13.3, 0.0), dlbl("C2: refund", sz: 6.3pt, c: red))
-  content((13.3, -0.65), dlbl("C1: release stock", sz: 6.3pt, c: red))
-  content((13.8, -1.5), dlbl("each step commits locally — NO locks held", sz: 6.5pt, c: green))
+  ppill(1.65, 0, "in", "place order", w: 3.0)
+  pstep(5.9, 0, "t1", "T1 reserve stock", "inventory svc · 12ms", st-man, n: 1, actor: "orchestrator", w: 4.2)
+  pstep(10.7, 0, "t2", "T2 charge card", "Stripe · p99 800ms", st-integ, n: 2, actor: "orchestrator", w: 4.2)
+  pdec(15.3, 0, "ok", "T3 ship\nsucceeded?", w: 1.6)
+  ppill(19.1, 0, "out", "confirmed", w: 3.3)
+
+  pstep(15.3, -4.0, "c2", "C2 refund", "Stripe refund · 600ms", st-dec, n: 3, actor: "compensator", w: 4.4)
+  pstep(5.9, -4.0, "c1", "C1 release stock", "inventory svc · 12ms", st-dec, n: 4, actor: "compensator", w: 4.4)
+
+  line("in.east", "t1.west", mark: (end: ">"), stroke: hot)
+  line("t1.east", "t2.west", mark: (end: ">"), stroke: hot)
+  line("t2.east", "ok.west", mark: (end: ">"), stroke: hot)
+  line("ok.east", "out.west", mark: (end: ">"), stroke: hot)
+  plabel(17.3, 0, "yes", c: green, dy: 0.62)
+  line("ok.south", "c2.north", mark: (end: ">"), stroke: except)
+  plabel(17.1, -2.1, "no", c: red, dy: 0)
+  line("c2.west", "c1.east", mark: (end: ">"), stroke: except)
+  plabel(10.5, -4.0, "undo in reverse order", c: red, dy: 0.34)
+  content((10.3, -6.2), dlbl("each step commits locally and holds NO lock across the network — 2PC would leave every participant blocked here instead", sz: 6.5pt, c: purple))
 }))
+#pcards(
+  [Each step commits locally; a compensation exists and is itself retryable; the saga log outlives the orchestrator],
+  [In: a business intent · Out: confirmed, or compensated back to the start. No isolation between steps],
+  [Temporal / Camunda orchestration · Stripe · inventory and fulfilment services · saga log table],
+)
 #v(2mm)
 
 #h2("2 · Orchestration vs choreography", c: blue)

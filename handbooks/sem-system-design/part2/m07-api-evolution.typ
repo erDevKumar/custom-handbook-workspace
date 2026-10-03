@@ -68,25 +68,34 @@
 
 #h2("2 · The expand–migrate–contract cycle", c: green)
 
-#align(center, cetz.canvas(length: 0.84cm, {
+#pfig("Fig M7.1 · expand → migrate → contract, where the gate is a measurement and not a date")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  rnode(2.8, 1.4, "e", "1 · EXPAND", "add new field, keep old", green, w: 4.4, h: 1.15)
-  rnode(9.0, 1.4, "m", "2 · MIGRATE", "write both, read new", orange, w: 4.4, h: 1.15)
-  rnode(15.2, 1.4, "c", "3 · CONTRACT", "remove old field", red, w: 4.4, h: 1.15)
-  line("e.east", "m.west", mark: (end: ">"), stroke: hot)
-  line("m.east", "c.west", mark: (end: ">"), stroke: miss)
-  content((5.9, 2.15), dlbl("deploy", sz: 6.3pt, c: green))
-  content((12.1, 2.15), dlbl("WAIT", sz: 6.5pt, c: red))
+  pprereq(-0.3, 20.9, 2.6, "clients written as tolerant readers; per-field read telemetry tagged by app version; a rollback path per deploy")
 
-  content((2.8, 0.3), dlbl("server writes old + new", sz: 6.3pt, c: green))
-  content((2.8, -0.3), dlbl("old clients unaffected", sz: 6.3pt, c: green))
-  content((9.0, 0.3), dlbl("new clients adopt new field", sz: 6.3pt, c: orange))
-  content((9.0, -0.3), dlbl("measure old-field read rate", sz: 6.3pt, c: purple))
-  content((15.2, 0.3), dlbl("only when usage hits ~0", sz: 6.3pt, c: red))
-  content((15.2, -0.3), dlbl("can take 18+ months", sz: 6.3pt, c: red))
+  ppill(1.7, 0, "in", "field changes", w: 3.1)
+  pstep(6.0, 0, "ex", "1 · EXPAND", "write both · one deploy", st-man, n: 1, actor: "server team", w: 4.2)
+  pstep(10.7, 0, "mi", "2 · MIGRATE", "clients adopt · months", st-auto, n: 2, actor: "app releases", w: 4.2)
+  pdec(15.3, 0, "z", "old field\nreads ~0?", w: 1.6)
+  ppill(19.2, 0, "out", "3 · CONTRACT", w: 3.1)
 
-  bracket(0.6, 17.4, -1.2, "the WAIT is the whole technique — it is measured, not guessed", purple)
+  pstep(15.3, -4.0, "wait", "keep waiting", "telemetry per app version", st-integ, n: 3, actor: "server team", w: 4.8)
+
+  line("in.east", "ex.west", mark: (end: ">"), stroke: hot)
+  line("ex.east", "mi.west", mark: (end: ">"), stroke: hot)
+  line("mi.east", "z.west", mark: (end: ">"), stroke: hot)
+  line("z.east", "out.west", mark: (end: ">"), stroke: miss)
+  plabel(17.55, 0, "yes", c: red, dy: 0.62)
+  line("z.south", "wait.north", mark: (end: ">"), stroke: except)
+  plabel(17.0, -2.1, "no", c: red, dy: 0)
+  content((6.4, -4.2), dlbl("only additive change is safe. A rename, a retype or\ntightened validation is a migration with a timeline\nand a measurement plan — never a code change.", sz: 6.5pt, c: purple))
+  content((10.3, -6.4), dlbl("re-measure each release: the wait between MIGRATE and CONTRACT routinely runs 18 months on a mobile client base", sz: 6.5pt, c: blue))
 }))
+#pcards(
+  [Tolerant readers on every client; read counts per field per app version; both fields written during MIGRATE],
+  [In: a field rename or retype · Out: the old field deleted once its read rate reaches ~0, never on a date],
+  [OpenAPI / protobuf schema registry · per-field usage telemetry · staged app rollout],
+)
 #v(2mm)
 
 #text(size: 9pt)[

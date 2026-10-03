@@ -37,34 +37,34 @@
 ]
 #v(2mm)
 
-#align(center, cetz.canvas(length: 0.84cm, {
+#pfig("Fig M2.1 · routing one key to its shard, and what changing the topology costs")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
+  pprereq(-0.3, 20.9, 2.6, "shard key chosen and immutable; ring membership in a consistent store; 100-256 vnodes per physical node")
 
-  // ---- modulo: everything moves ----
-  content((4.2, 4.6), dlbl("MODULO  hash(k) % N", sz: 8pt, c: red))
-  rnode(1.6, 3.2, "a1", "N=4", "4 nodes", blue, w: 2.2, h: 0.8)
-  rnode(6.6, 3.2, "a2", "N=5", "add 1 node", red, w: 2.6, h: 0.8)
-  line("a1.east", "a2.west", mark: (end: ">"), stroke: miss)
-  content((4.1, 2.35), dlbl("~80% of ALL keys relocate", sz: 7pt, c: red))
-  content((4.1, 1.7), dlbl("hours of rebalancing, cold caches,", sz: 6.4pt, c: red))
-  content((4.1, 1.15), dlbl("replication storm", sz: 6.4pt, c: red))
+  ppill(1.6, 0, "in", "request(key)", w: 2.9)
+  pstep(5.8, 0, "h", "hash the key", "xxhash64 · 0.02ms", st-auto, n: 1, actor: "client lib", w: 3.8)
+  pstep(10.5, 0, "ring", "walk the ring", "first vnode CW · 0.01ms", st-auto, n: 2, actor: "router", w: 4.2)
+  pdec(15.3, 0, "own", "arc still\nowned?", w: 1.6)
+  ppill(19.1, 0, "out", "shard N owns", w: 3.3)
 
-  // ---- consistent hashing ring ----
-  content((13.4, 4.6), dlbl("CONSISTENT HASHING + vnodes", sz: 8pt, c: green))
-  circle((13.4, 1.6), radius: 2.5, stroke: 1.3pt + luma(150))
-  content((13.4, 1.6), dlbl("hash ring\n0 .. 2^32", sz: 6.5pt, c: luma(120)))
-  // node positions around the ring
-  for (ang, lbl, col) in ((40, "A", green), (105, "B", blue), (170, "C", orange),
-                           (235, "A", green), (300, "B", blue), (350, "C", orange)) {
-    let rx = 13.4 + 2.5 * calc.cos(ang * 1deg)
-    let ry = 1.6 + 2.5 * calc.sin(ang * 1deg)
-    circle((rx, ry), radius: 0.3, stroke: 1.2pt + col, fill: white)
-    content((rx, ry), dlbl(lbl, sz: 6pt, c: col))
-  }
-  content((13.4, -1.5), dlbl("each node sits at 100-256 vnodes", sz: 6.6pt, c: purple))
-  content((13.4, -2.1), dlbl("add a node -> only K/N keys move", sz: 6.6pt, c: green))
-  bracket(10.3, 16.5, -2.7, "key -> first node CLOCKWISE", green)
+  pstep(15.3, -4.0, "mv", "move K/N keys", "streaming rebalance · hours", st-dec, n: 3, actor: "operator", w: 4.6)
+
+  line("in.east", "h.west", mark: (end: ">"), stroke: hot)
+  line("h.east", "ring.west", mark: (end: ">"), stroke: hot)
+  line("ring.east", "own.west", mark: (end: ">"), stroke: hot)
+  line("own.east", "out.west", mark: (end: ">"), stroke: hot)
+  plabel(17.3, 0, "yes", c: green, dy: 0.62)
+  line("own.south", "mv.north", mark: (end: ">"), stroke: except)
+  plabel(17.4, -2.1, "a node joined", c: red, dy: 0)
+  content((6.4, -4.2), dlbl("with plain `hash(key) % N` instead of a ring, adding\none machine relocates ~80% of ALL keys — hours of\nrebalancing, cold caches and a replication storm", sz: 6.5pt, c: red))
+  content((10.3, -6.4), dlbl("the ring is updated in etcd and routing resumes; only the arc between the new node and its neighbour moved", sz: 6.5pt, c: purple))
 }))
+#pcards(
+  [A high-cardinality key such as `user_id`; ring membership in etcd/ZooKeeper; vnode count fixed up front],
+  [In: one key · Out: exactly one owning shard, one network hop. A topology change moves only K/N keys],
+  [Consistent hash ring (Karger 1997) · xxhash64 · 100-256 vnodes per node · etcd for membership],
+)
 #v(2mm)
 
 #h2("2 · Choosing a shard key — the decision you cannot undo", c: purple)

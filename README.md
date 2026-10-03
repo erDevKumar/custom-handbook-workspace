@@ -10,7 +10,8 @@ custom-handbook-workspace/
 │   ├── lib/template.typ          the style module — fonts, 6-pen palette,
 │   │                             callouts, flowchart shapes, TOC/index engine
 │   ├── lib/reference-standard.typ a page that defines the quality bar
-│   └── CHAPTER-TEMPLATE.md       the structure every chapter follows
+│   ├── CHAPTER-TEMPLATE.md       the structure every chapter follows
+│   └── DIAGRAM-GUIDE.md          the process-flow shape language + layout rules
 ├── handbooks/
 │   └── sem-system-design/        ← one handbook
 │       ├── handbook.typ          the master. Compile THIS.
@@ -62,6 +63,13 @@ both — that is the point of the split.
   (▸ ✗ § ※) reinforce the same meanings so a greyscale print still reads.
 - **Diagrams are CeTZ with named anchors.** Never hand-place boxes at absolute
   coordinates — arrows must attach to component edges by construction.
+- **Diagrams use the process-flow shape language** — numbered step badges, actor
+  labels, decision diamonds, start/end pills, prerequisite bars, labelled arrows,
+  loop-back rails and exception paths, each with a caption line above and three
+  context cards below. The vocabulary is ported from the Cocoon AI
+  [process-flow-diagram generator](https://github.com/Cocoon-AI/process-flow-diagram-generator);
+  its dark theme is deliberately not, because this book prints on cream A4.
+  `shared/DIAGRAM-GUIDE.md` is the authoring reference.
 - **Margins are mirrored**, 32 mm on the outer edge, as deliberate note-taking
   space for a printed copy. It never falls in the gutter.
 - **Chapters start on a fresh page** (`h1()` forces the break), so a reader can

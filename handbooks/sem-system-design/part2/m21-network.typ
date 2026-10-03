@@ -18,26 +18,43 @@
 
 #h2("1 · The protocol ladder", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M21.1 · what a mobile client pays before its first byte, and the fallback when UDP is blocked")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -2.1, 18.4, 2.3, "CONNECTION SETUP — round trips before the first byte", blue,
-    rgb("#f4f8fd"))
-  let lane(y, lbl, segs, total, c) = {
-    content((1.9, y), dlbl(lbl, sz: 6.8pt, c: c))
-    let x = 3.6
-    for s in segs {
-      rect((x, y - 0.26), (x + s.at(1), y + 0.26), stroke: 0.9pt + s.at(2), fill: white)
-      content((x + s.at(1) / 2, y), dlbl(s.at(0), sz: 5.8pt, c: ink))
-      x = x + s.at(1) + 0.12
-    }
-    content((x + 1.0, y), dlbl(total, sz: 6.6pt, c: c))
-  }
-  lane(1.5, "HTTP/1.1 + TLS", (("TCP", 2.2, blue), ("TLS 1.2", 4.4, orange), ("req", 2.2, green)), "3 RTT", red)
-  lane(0.5, "HTTP/2 + TLS 1.3", (("TCP", 2.2, blue), ("TLS 1.3", 2.2, orange), ("req", 2.2, green)), "2 RTT", orange)
-  lane(-0.5, "HTTP/3 (QUIC)", (("QUIC + TLS", 2.2, purple), ("req", 2.2, green)), "1 RTT", green)
-  lane(-1.5, "HTTP/3 resumed", (("0-RTT + req", 2.2, green),), "0 RTT", green)
-  content((13.6, -1.5), dlbl("← repeat visit: data rides the first packet", sz: 6.3pt, c: green))
+  pprereq(-0.4, 20.6, 2.6, "HTTP/3 advertised via `Alt-Svc` over a working HTTP/2 connection — never ship QUIC-only · 4G RTT ≈ 70 ms")
+
+  ppill(2.0, 0, "app", "app opens a screen", w: 3.6)
+  pstep(7.0, 0, "any", "Anycast resolve", "BGP → nearest PoP · 10–30ms", st-integ, n: 1, actor: "dns + edge", w: 4.6)
+  pdec(12.2, 0, "d", "UDP reaches it?", w: 2.2)
+  pstep(17.6, 0, "q3", "QUIC + TLS merged", "1 RTT = 70ms · 0 on resume", st-auto, n: 2, actor: "http/3", w: 5.0)
+  pstep(12.2, -3.6, "h2", "TCP then TLS 1.3", "2 RTT = 140ms · HOL-blocks", st-dec, n: 3, w: 4.8)
+
+  line("app.east", "any.west", mark: (end: ">"), stroke: hot)
+  line("any.east", "d.west", mark: (end: ">"), stroke: hot)
+  line("d.east", "q3.west", mark: (end: ">"), stroke: hot)
+  plabel(14.2, 0, "yes", c: green)
+  line("d.south", "h2.north", mark: (end: ">"), stroke: except)
+  plabel(16.1, -1.8, "no — this network drops UDP", c: red, dy: 0)
+
+  // after setup
+  pstep(4.4, -7.0, "bff", "BFF aggregates", "6 calls fan out server-side", st-man, n: 4, actor: "edge", w: 4.8)
+  pstep(10.4, -7.0, "mx", "per-stream order", "one lost packet stalls 1, not 6", st-auto, n: 5, actor: "quic", w: 5.0)
+  ppill(17.2, -7.0, "px", "screen painted", w: 4.2, c: green)
+
+  line("q3.south", (17.6, -5.4), (4.4, -5.4), "bff.north", mark: (end: ">"), stroke: wrap)
+  plabel(10.9, -5.4, "140ms total · kept alive by a QUIC `PING` inside the 30–60s NAT window", c: green)
+  line("h2.south", "px.north", mark: (end: ">"), stroke: miss)
+  plabel(18.6, -5.8, "connected, but", c: red, dy: 0)
+  plabel(18.6, -6.4, "HOL-blocked", c: red, dy: 0)
+  line("bff.east", "mx.west", mark: (end: ">"), stroke: hot)
+  line("mx.east", "px.west", mark: (end: ">"), stroke: hot)
+  ploop("px.west", "app.south", -8.8, "Wi-Fi → cellular: QUIC migrates by connection ID; TCP would reconnect", c: purple)
 }))
+#pcards(
+  [0-RTT permitted only for idempotent requests — a resumed first packet can be captured and replayed],
+  [In: a cold app launch on a 70 ms link · Out: 140 ms of network for a whole screen, against 1,680 ms for 6 sequential HTTP/1.1 calls],
+  [QUIC / HTTP/3 (userspace, more CPU) · Anycast + BGP · TLS 1.3 · a BFF doing the fan-out (M6)],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

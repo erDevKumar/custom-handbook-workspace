@@ -56,18 +56,38 @@
 )
 #v(2mm)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M22.1 · write skew: two transactions that never touch the same row, and the level that catches them")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -2.3, 18.4, 2.0, "WRITE SKEW — the one that passes every review", red, rgb("#fdf0ee"))
-  content((4.4, 1.3), dlbl("rule: at least ONE doctor must stay on call", sz: 7pt, c: purple))
-  rnode(3.4, 0.2, "t1", "Txn A (Alice)", "reads: 2 on call → OK", blue, w: 4.6, h: 1.0)
-  rnode(10.4, 0.2, "t2", "Txn B (Bob)", "reads: 2 on call → OK", blue, w: 4.6, h: 1.0)
-  content((3.4, -1.0), dlbl("UPDATE alice SET oncall=false", sz: 6.4pt, c: red))
-  content((10.4, -1.0), dlbl("UPDATE bob SET oncall=false", sz: 6.4pt, c: red))
-  content((15.6, 0.2), dlbl("both COMMIT", sz: 7pt, c: red))
-  content((15.6, -0.5), dlbl("0 on call", sz: 7.5pt, c: red))
-  content((7.0, -1.75), dlbl("neither wrote the same row, so no lock ever conflicted", sz: 6.5pt, c: red))
+  pprereq(-0.4, 20.6, 2.6, "invariant: at least ONE doctor stays on call · MVCC snapshot per txn · no HTTP call inside the transaction")
+
+  ppill(1.8, 0, "beg", "two BEGINs", w: 3.0)
+  pstep(6.4, 0, "ra", "Txn A reads", "snapshot: 2 on call → OK", st-man, n: 1, actor: "alice", w: 4.2)
+  pstep(11.6, 0, "rb", "Txn B reads", "same snapshot: 2 → OK", st-man, n: 2, actor: "bob", w: 4.2)
+  pstep(17.2, 0, "wr", "different rows", "`UPDATE alice` · `UPDATE bob`", st-auto, n: 3, actor: "postgres", w: 5.0)
+
+  line("beg.east", "ra.west", mark: (end: ">"), stroke: hot)
+  line("ra.east", "rb.west", mark: (end: ">"), stroke: hot)
+  line("rb.east", "wr.west", mark: (end: ">"), stroke: hot)
+
+  pdec(10.4, -4.0, "d", "SERIALIZABLE?", w: 2.4)
+  pstep(16.4, -4.0, "ab", "abort one txn", "SSI 40001 · retry, ~2ms", st-dec, n: 4, actor: "postgres", w: 4.4)
+  pstep(4.2, -4.0, "bad", "both COMMIT · 0 on call", "Repeatable Read permits it", st-dec, n: 5, w: 5.8)
+  ppill(16.4, -7.0, "good", "invariant held", w: 3.4, c: green)
+
+  line("wr.south", (17.2, -2.0), (10.4, -2.0), "d.north", mark: (end: ">"), stroke: hot)
+  plabel(13.8, -2.0, "no lock ever conflicted", c: luma(110))
+  line("d.east", "ab.west", mark: (end: ">"), stroke: hot)
+  plabel(12.7, -4.0, "yes", c: green)
+  line("d.west", "bad.east", mark: (end: ">"), stroke: except)
+  plabel(8.1, -4.0, "no", c: red)
+  line("ab.south", "good.north", mark: (end: ">"), stroke: hot)
 }))
+#pcards(
+  [Isolation level declared per operation and tested with two threads — a weekly production race is reproducible in a unit test],
+  [In: two concurrent read-check-write transactions · Out: either one serialization failure to retry, or a silently broken invariant],
+  [Postgres `SERIALIZABLE` (SSI) or `SELECT … FOR UPDATE` over the predicate · atomic conditional `UPDATE` as the cheaper alternative],
+)
 #v(1.5mm)
 
 #key[

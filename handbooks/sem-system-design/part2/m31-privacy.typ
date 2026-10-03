@@ -18,25 +18,36 @@
 
 #h2("1 · Where a user's data actually lives", c: red)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M31.1 · one erasure request fanning out, and the copy that cannot be rewritten")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -2.4, 18.4, 2.0, "ERASURE FAN-OUT — every copy must be reached", red, rgb("#fdf0ee"))
-  rnode(2.4, 1.1, "req", "erasure request", "30-day clock starts", red, w: 4.0, h: 0.9)
-  rnode(7.6, 1.1, "orch", "deletion orchestrator", "saga, auditable (M4)", purple, w: 4.6, h: 0.9)
-  line("req.east", "orch.west", mark: (end: ">"), stroke: hot)
+  pprereq(-0.4, 20.6, 2.9, "a data inventory naming every system holding PII, with an owner · per-user keys in a vault · a processor register")
 
-  let tgt(x, y, n, lbl, sub, c) = rnode(x, y, n, lbl, sub, c, w: 3.4, h: 0.75)
-  tgt(13.8, 1.7, "db", "primary + replicas", "cascade FKs", green)
-  tgt(13.8, 0.6, "idx", "search index", "by doc id", green)
-  tgt(13.8, -0.5, "cache", "caches", "key sweep", green)
-  tgt(13.8, -1.6, "wh", "warehouse", "anonymise", orange)
-  for t in ("db", "idx", "cache", "wh") {
-    line("orch.east", t + ".west", mark: (end: ">"), stroke: lookup)
-  }
-  content((5.0, -0.5), dlbl("backups: cannot rewrite —", sz: 6.4pt, c: red))
-  content((5.0, -1.1), dlbl("document the retention window", sz: 6.4pt, c: red))
-  content((5.0, -1.8), dlbl("3rd parties: must be told too", sz: 6.4pt, c: red))
+  ppill(2.2, 0, "in", "erasure request", w: 4.0)
+  pstep(8.0, 0, "a", "deletion saga", "30-day clock · auditable (M4)", st-auto, n: 1, actor: "orchestrator", w: 5.6)
+  pstep(15.3, 0, "b", "live systems", "DB + index + cache", st-auto, n: 2, actor: "~12 targets", w: 4.6)
+  pdec(19.0, -3.4, "d", "rewritable?", w: 2.1)
+  pstep(13.2, -3.4, "c", "batched hard delete", "1,000 rows/txn · 50k rows", st-man, n: 3, actor: "", w: 5.4)
+  ppill(2.9, -3.4, "out", "per-target confirmation", c: green, w: 5.4)
+  pstep(13.4, -6.6, "x", "crypto-shred the key", "backups + archives · 35-day window", st-dec, n: 4, actor: "", w: 6.4)
+
+  line("in.east", "a.west", mark: (end: ">"), stroke: hot)
+  line("a.east", "b.west", mark: (end: ">"), stroke: hot)
+  plabel(12.1, 0, "333/day", c: green)
+  line("b.east", (20.6, 0), (20.6, -3.4), "d.east", mark: (end: ">"), stroke: hot)
+  line("d.west", "c.east", mark: (end: ">"), stroke: hot)
+  plabel(17.1, -3.4, "yes", c: green)
+  line("c.west", "out.east", mark: (end: ">"), stroke: hot)
+  plabel(8.4, -3.4, "warehouse anonymised", c: green)
+  line("d.south", (19.0, -6.6), "x.east", mark: (end: ">"), stroke: except)
+  plabel(17.7, -6.6, "no — immutable", c: red, dy: -0.42)
+  content((4.4, -6.6), dlbl("a restore must re-apply pending erasures\nbefore the data becomes live again", sz: 6.5pt, c: red))
 }))
+#pcards(
+  [A maintained inventory of every system holding personal data. Soft delete is an undo window, never erasure — a scheduled hard delete must follow it.],
+  [In: a verified erasure request. Out: per-target confirmation plus an audit log of what was deleted and when; keys destroyed for anything immutable.],
+  [Saga orchestrator · Postgres cascades in 1,000-row batches · search index by doc id · cache key sweep · per-user keys in KMS · third-party erasure APIs],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

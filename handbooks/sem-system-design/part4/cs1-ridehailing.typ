@@ -75,37 +75,126 @@
 
 #h2("3 · Topology", c: blue)
 
-#align(center, cetz.canvas(length: 0.78cm, {
+#pfig("Fig CS1.1 · topology — two subsystems, two consistency guarantees, two stores")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -0.9, 19.0, 2.0, "EDGE", blue, rgb("#f4f8fd"))
-  rnode(2.6, 0.7, "dr", "driver app", "batched pings", purple, w: 3.4, h: 0.85)
-  rnode(7.4, 0.7, "ri", "rider app", "WebSocket", purple, w: 3.0, h: 0.85)
-  rnode(13.0, 0.7, "gw", "gateway / conn fleet", "Envoy + WS gateways", blue, w: 5.6, h: 0.85)
-  line("dr.east", "gw.west", mark: (end: ">"), stroke: hot)
+  swimlane(-0.4, -1.1, 20.4, 2.1, "EDGE", blue, rgb("#f4f8fd"))
+  rnode(2.6, 0.5, "dr", "driver app", "batched pings", purple, w: 3.6, h: 0.9)
+  rnode(9.6, 0.5, "ri", "rider app", "WebSocket", purple, w: 3.2, h: 0.9)
+  rnode(16.8, 0.5, "gw", "gateway / conn fleet", "Envoy + WS gateways", blue, w: 5.8, h: 0.9)
+  line("dr.east", (5.2, 0.5), (5.2, 1.5), (16.8, 1.5), "gw.north",
+    mark: (end: ">"), stroke: hot)
   line("ri.east", "gw.west", mark: (end: ">"), stroke: hot)
+  badge(6.8, 1.5, "1", green)
+  plabel(10.4, 1.5, "10 fixes · 1 KB · HTTP/3", c: green, dy: 0.28)
+  badge(13.1, 0.5, "2", green)
+  plabel(13.1, 0.5, "ride request", c: green, dy: 0.48)
 
-  swimlane(-0.4, -4.6, 19.0, -1.3, "SERVICE", green, rgb("#f6fbf7"))
-  rnode(2.8, -2.3, "loc", "location svc", "H3 index · Redis", green, w: 4.0, h: 0.85)
-  rnode(7.8, -2.3, "dis", "dispatch svc", "scoring + offer", green, w: 3.8, h: 0.85)
-  rnode(12.6, -2.3, "trip", "trip svc", "state machine", green, w: 3.6, h: 0.85)
-  rnode(17.0, -2.3, "pay", "payment svc", "idempotent (S4)", red, w: 3.2, h: 0.85)
-  line("gw.south", (13.0, -1.6), (2.8, -1.6), "loc.north", mark: (end: ">"), stroke: hot)
+  swimlane(-0.4, -5.1, 20.4, -1.6, "SERVICE", green, rgb("#f6fbf7"))
+  rnode(2.9, -2.6, "loc", "location svc", "H3 index · Redis", green, w: 4.2, h: 0.9)
+  rnode(8.5, -2.6, "dis", "dispatch svc", "scoring + offer", green, w: 4.0, h: 0.9)
+  rnode(13.9, -2.6, "trip", "trip svc", "state machine", green, w: 3.8, h: 0.9)
+  rnode(18.7, -2.6, "pay", "payment svc", "idempotent (S4)", red, w: 3.2, h: 0.9)
+  line("gw.south", (16.8, -1.9), (2.9, -1.9), "loc.north", mark: (end: ">"), stroke: hot)
   line("loc.east", "dis.west", mark: (end: ">"), stroke: lookup)
   line("dis.east", "trip.west", mark: (end: ">"), stroke: hot)
   line("trip.east", "pay.west", mark: (end: ">"), stroke: hot)
-  rnode(5.2, -3.9, "surge", "surge pricing", "streaming agg", orange, w: 4.0, h: 0.8)
-  line("loc.south", "surge.north", mark: (end: ">"), stroke: async)
+  badge(5.7, -2.6, "3", green)
+  plabel(5.7, -2.6, "~9 cells · 50 drivers", c: green, dy: -0.72)
+  badge(11.2, -2.6, "4", green)
+  plabel(11.2, -2.6, "offer accepted", c: green, dy: -0.72)
+  badge(16.5, -2.6, "5", red)
+  plabel(16.5, -2.6, "on complete", c: red, dy: -0.72)
+  rnode(14.6, -4.4, "surge", "surge pricing", "streaming agg", orange, w: 4.2, h: 0.85)
+  line((2.9, -3.05), (2.9, -4.4), "surge.west", mark: (end: ">"), stroke: async)
+  plabel(7.6, -4.4, "demand / supply signal", c: purple, dy: 0.32)
 
-  swimlane(-0.4, -7.4, 19.0, -5.0, "STORAGE", orange, rgb("#fdf7f2"))
-  rnode(2.8, -6.2, "rd", "Redis", "live positions", green, w: 3.2, h: 0.8)
-  cylinder(7.6, -6.2, "pg", "Postgres — trips", orange, w: 4.2, h: 0.95)
-  rnode(12.6, -6.2, "kf", "Kafka", "telemetry + outbox", purple, w: 3.6, h: 0.8)
-  cylinder(17.0, -6.2, "ch", "ClickHouse", purple, w: 3.2, h: 0.95)
-  line("loc.south", (2.8, -5.2), "rd.north", mark: (end: ">"), stroke: hot)
-  line("trip.south", (12.6, -5.2), (7.6, -5.2), "pg.north", mark: (end: ">"), stroke: hot)
+  swimlane(-0.4, -8.2, 20.4, -5.6, "STORAGE", orange, rgb("#fdf7f2"))
+  rnode(2.9, -7.0, "rd", "Redis", "live positions · TTL 60 s", green, w: 4.4, h: 0.85)
+  cylinder(9.0, -7.0, "pg", "Postgres — trips", orange, w: 4.4, h: 1.0)
+  rnode(14.2, -7.0, "kf", "Kafka", "telemetry + outbox", purple, w: 3.8, h: 0.85)
+  cylinder(19.0, -7.0, "ch", "ClickHouse", purple, w: 3.2, h: 1.0)
+  line((2.9, -4.83), (2.9, -5.9), "rd.north", mark: (end: ">"), stroke: hot)
+  line("trip.south", (13.9, -5.9), (9.0, -5.9), "pg.north", mark: (end: ">"), stroke: hot)
   line("kf.east", "ch.west", mark: (end: ">"), stroke: async)
-  bracket(0.6, 18.0, -7.8, "dispatch path budget: 2,000 ms — of which scoring is ~200 ms", purple)
+  plabel(11.4, -5.9, "shard by city_id", c: green, dy: 0.26)
+  plabel(17.3, -7.0, "columnar", c: purple, dy: 0.62)
+  bracket(0.4, 20.0, -8.6, "dispatch path budget: 2,000 ms — of which scoring is ~200 ms", purple)
 }))
+#pcards(
+  [Driver positions in Redis with a 60 s TTL; trips sharded by `city_id`; outbox on the trip table.],
+  [In: batched GPS fixes, ride requests. Out: driver offers, 1 Hz rider map pushes, ledger entries.],
+  [Envoy + WS gateways · Redis (H3 ZSETs) · Postgres · Kafka · ClickHouse],
+)
+#v(2mm)
+
+#text(size: 8.8pt)[
+  #text(fill: green, weight: "bold")[The one path that defines the system] is the dispatch path —
+  rider request to driver offer, inside 2 seconds. It is the only path where a
+  #underline(stroke: 1pt + green)[late answer is a wrong answer], because the candidate driver has
+  physically moved on. Everything else in the design exists to keep this path short.
+]
+#v(1.5mm)
+
+#pfig("Fig CS1.2 · the dispatch critical path — request to accepted offer, p99 budget 2,000 ms")
+#align(center, cetz.canvas(length: 0.76cm, {
+  import cetz.draw: *
+  pprereq(-0.2, 20.2, 2.5,
+    "driver positions fresh in Redis (TTL 60 s) · driver status = available · surge multiplier published")
+
+  // ---- row 1: request → candidate selection
+  ppill(2.0, 0, "in", "rider taps REQUEST", w: 3.6)
+  pstep(7.4, 0, "a", "authenticate", "Envoy · ~20 ms", st-integ, n: 1, actor: "gateway", w: 3.8)
+  pstep(13.4, 0, "b", "H3 ring lookup", "~9 cells · Redis 1 ms", st-auto, n: 2, actor: "location svc", w: 4.4)
+  pstep(18.6, 0, "c", "score", "~200 ms", st-auto, n: 3, actor: "dispatch svc", w: 2.8)
+
+  line("in.east", "a.west", mark: (end: ">"), stroke: hot)
+  line("a.east", "b.west", mark: (end: ">"), stroke: hot)
+  plabel(10.3, 0, "pickup H3 cell", c: green, dy: 0.72)
+  line("b.east", "c.west", mark: (end: ">"), stroke: lookup)
+
+  // ---- wrap to row 2
+  line("c.south", (18.6, -2.0), (2.2, -2.0), (2.2, -3.1),
+    mark: (end: ">"), stroke: wrap)
+  plabel(10.4, -2.0, "~50 candidates, best-scored first", c: luma(110), dy: 0.28)
+
+  // ---- row 2: decision → offer → trip
+  pdec(2.2, -4.5, "d1", "any candidate\nin range?", w: 2.2)
+  pstep(7.2, -4.5, "e", "send offer", "push · 15 s timer", st-integ, n: 4, actor: "driver app", w: 3.8)
+  pdec(12.4, -4.5, "d2", "accepted\nin 15 s?", w: 2.0)
+  pstep(17.6, -4.5, "f", "atomic accept", "WHERE status='offered'", st-auto, n: 5, actor: "trip svc", w: 4.6)
+
+  line("d1.east", "e.west", mark: (end: ">"), stroke: hot)
+  plabel(4.6, -4.5, "yes", c: green, dy: 0.34)
+  line("e.east", "d2.west", mark: (end: ">"), stroke: hot)
+  line("d2.east", "f.west", mark: (end: ">"), stroke: hot)
+  plabel(14.0, -4.5, "yes", c: green, dy: 0.34)
+
+  // ---- re-dispatch rail: a timeout returns the offer to the next candidate
+  ploop("d2.south", "e.south", -6.3, "timeout or decline → next candidate (an offer, never an assignment)")
+
+  // ---- wrap to row 3
+  line("f.south", (17.6, -7.6), (3.2, -7.6), (3.2, -8.5),
+    mark: (end: ">"), stroke: wrap)
+  plabel(11.0, -7.6, "trip_id issued — now, and only now, the ride is assigned", c: luma(110), dy: 0.28)
+
+  // ---- row 3: rider gets the map; the exception sinks beside it
+  pstep(3.2, -9.8, "g", "push to rider", "WebSocket · 1 Hz", st-man, n: 6, actor: "rider app", w: 4.0)
+  ppill(9.0, -9.8, "out", "driver en route", c: green, w: 3.4)
+  line("g.east", "out.west", mark: (end: ">"), stroke: hot)
+
+  pstep(17.0, -9.8, "x", "no cars available", "show surge + retry", st-dec, n: 0, actor: "rider app", w: 4.4)
+  line("d1.west", (0.3, -4.5), (0.3, -11.6), (17.0, -11.6), "x.south",
+    mark: (end: ">"), stroke: except)
+  plabel(8.6, -11.6, "no candidate in range — fail fast and honestly", c: red, dy: 0.28)
+}))
+#pcards(
+  [Fresh positions in Redis, driver marked available, surge multiplier already computed from the
+   streaming aggregate.],
+  [In: rider pickup location. Out: a 15-second *offer* to one driver, then a `trip_id` and live
+   tracking. Nothing is assigned until the atomic accept succeeds.],
+  [Envoy · H3 + Redis ZSET · dispatch scorer · Postgres conditional update · WS push],
+)
 #v(2mm)
 
 #h2("4 · Data model & partition keys", c: purple)
@@ -190,7 +279,62 @@
   #text(fill: red, weight: "bold")[Double-accept.] Two drivers accept the same ride.
   #text(fill: green)[Fix:] atomic conditional update on trip state (`WHERE status = 'offered'`)
   — the second accept affects zero rows and that driver is told immediately (M22).
+]
+#v(1.5mm)
 
+#pfig("Fig CS1.3 · failure response — two drivers accept the same ride")
+#align(center, cetz.canvas(length: 0.76cm, {
+  import cetz.draw: *
+  pprereq(-0.2, 20.2, 2.5,
+    "trip row holds status='offered' · every accept carries an idempotency key per transition (S4)")
+
+  // ---- row 1: both accepts hit one row; the lock picks a winner
+  ppill(2.2, 0, "in", "two accepts arrive", c: red, w: 4.0)
+  pstep(8.2, 0, "a", "conditional UPDATE", "WHERE status='offered'", st-auto, n: 1,
+    actor: "trip svc", w: 4.8)
+  pdec(13.6, 0, "d", "rows\naffected = 1?", w: 2.2)
+  pstep(18.4, 0, "b", "trip assigned", "status → 'accepted'", st-auto, n: 2,
+    actor: "trip svc", w: 4.2)
+
+  line("in.east", "a.west", mark: (end: ">"), stroke: miss)
+  line("a.east", "d.west", mark: (end: ">"), stroke: hot)
+  plabel(11.9, 0, "serialised by the row lock", c: green, dy: 1.42)
+  line("d.east", "b.west", mark: (end: ">"), stroke: hot)
+  plabel(15.4, 0, "winner", c: green, dy: 0.74)
+
+  // ---- the loser: detection → mitigation → recovery, one row down
+  line("d.south", (13.6, -2.2), (2.6, -2.2), (2.6, -3.1), mark: (end: ">"), stroke: except)
+  plabel(8.6, -2.2, "0 rows affected — this driver lost, and nothing threw", c: red, dy: 0.28)
+
+  pstep(2.6, -4.4, "c", "detect: 0 rows", "the return value is the signal", st-dec, n: 3,
+    actor: "trip svc", w: 4.4)
+  pstep(8.6, -4.4, "e", "tell driver now", "\"ride taken\" · no penalty", st-man, n: 4,
+    actor: "driver app", w: 4.6)
+  pstep(14.6, -4.4, "f", "return to pool", "status → available", st-auto, n: 5,
+    actor: "location svc", w: 4.4)
+  pstep(19.0, -4.4, "g", "re-eligible", "next cycle", st-auto, n: 6, actor: "dispatch", w: 3.6)
+
+  line("c.east", "e.west", mark: (end: ">"), stroke: except)
+  line("e.east", "f.west", mark: (end: ">"), stroke: hot)
+  plabel(11.9, -4.4, "released", c: green, dy: 0.34)
+  line("f.east", "g.west", mark: (end: ">"), stroke: hot)
+
+  // ---- recovery rail back to the start: the loser re-enters dispatch unaided
+  ploop("g.south", "a.south", -6.6, "recovered automatically — no on-call, no rider impact")
+
+  ppill(9.0, -8.6, "out", "one ride, exactly one driver", c: green, w: 7.0)
+  line("b.east", (21.2, 0), (21.2, -8.6), "out.east", mark: (end: ">"), stroke: hot)
+}))
+#pcards(
+  [`status='offered'` is the only state an accept may transition from; the row lock does the
+   serialising, so no distributed lock is needed.],
+  [In: two concurrent accept calls. Out: exactly one `trip_id`, and an immediate honest
+   "ride taken" for the loser — never a silent timeout.],
+  [Postgres conditional UPDATE (M22) · idempotency keys (S4) · Redis driver-status hash],
+)
+#v(2mm)
+
+#text(size: 8.8pt)[
   #text(fill: red, weight: "bold")[Dispatch to a driver who just went offline.] Location TTL has
   not yet expired. #text(fill: green)[Fix:] the offer has a 15-second acceptance timeout; on
   expiry, re-dispatch to the next candidate. Treat dispatch as

@@ -17,21 +17,39 @@
 
 #h2("1 · The ingestion path", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M36.1 · 500M events a day — collect, buffer, aggregate, and the queue that must drop")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.8, 18.4, 2.1, "COLLECT → BUFFER → AGGREGATE → QUERY", orange, rgb("#fdf7f2"))
-  rnode(2.4, 1.1, "cli", "clients", "batch + sample", purple, w: 3.4, h: 0.95)
-  rnode(6.8, 1.1, "gw", "collector", "validate, no DB", blue, w: 3.4, h: 0.95)
-  rnode(11.2, 1.1, "k", "Kafka", "partitioned, 7d", green, w: 3.2, h: 0.95)
-  cylinder(15.8, 1.1, "ch", "ClickHouse", orange, w: 3.6, h: 1.1)
-  line("cli.east", "gw.west", mark: (end: ">"), stroke: hot);  badge(4.6, 1.65, "1", green)
-  line("gw.east", "k.west", mark: (end: ">"), stroke: hot);    badge(9.0, 1.65, "2", green)
-  line("k.east", "ch.west", mark: (end: ">"), stroke: hot);    badge(13.5, 1.65, "3", green)
-  content((11.2, 0.1), dlbl("replay on schema change", sz: 6.2pt, c: purple))
-  content((15.8, -0.1), dlbl("columnar · batched inserts", sz: 6.2pt, c: orange))
-  content((9.0, -1.2), dlbl("the buffer is what lets the warehouse be slow, down, or rebuilt",
-    sz: 6.5pt, c: green))
+  pprereq(-0.4, 20.6, 2.9, "a schema registry checked in CI (M7) · client-generated event ids for dedup · sample rate remotely controlled (M24)")
+
+  ppill(2.2, 0, "in", "app event", w: 3.4)
+  pstep(7.2, 0, "a", "batch on device", "flush on timer · radio, not payload", st-man, n: 1, actor: "client", w: 5.8)
+  pdec(12.6, 0, "d", "queue full?", w: 2.1)
+  pstep(17.8, 0, "b", "collector", "validate only, no DB", st-integ, n: 2, actor: "stateless", w: 4.8)
+  pstep(17.0, -3.4, "c", "Kafka buffer", "7 d × 250 GB × 3 = 5.25 TB", st-auto, n: 3, actor: "", w: 6.0)
+  pstep(9.0, -3.4, "e", "ClickHouse", "50k-row batches, one insert / 3 s", st-auto, n: 4, actor: "columnar", w: 6.2)
+  ppill(2.2, -3.4, "out", "sub-second aggregates", c: green, w: 5.0)
+  pstep(8.4, -6.6, "x", "drop the event", "bounded queue · never block checkout", st-dec, n: 0, actor: "", w: 7.0)
+
+  line("in.east", "a.west", mark: (end: ">"), stroke: hot)
+  line("a.east", "d.west", mark: (end: ">"), stroke: hot)
+  line("d.east", "b.west", mark: (end: ">"), stroke: hot)
+  plabel(15.3, 0, "no — ~17,400/s peak", c: green, dy: 0.85)
+  line("b.east", (20.6, 0), (20.6, -3.4), "c.east", mark: (end: ">"), stroke: hot)
+  content((19.0, -1.7), dlbl("replay a week\nafter a bug", sz: 6.3pt, c: purple))
+  line("c.west", "e.east", mark: (end: ">"), stroke: hot)
+  plabel(14.3, -3.4, "aggregate on ingest_time", c: green, dy: 0.85)
+  line("e.west", "out.east", mark: (end: ">"), stroke: hot)
+  plabel(5.3, -3.4, "10× compression", c: green, dy: 0.85)
+  line("d.south", (12.6, -6.6), "x.east", mark: (end: ">"), stroke: except)
+  plabel(12.3, -6.6, "yes", c: red, dy: 0.3)
+  content((2.6, -6.6), dlbl("dropping telemetry always\nbeats dropping traffic", sz: 6.5pt, c: red))
 }))
+#pcards(
+  [The telemetry path is non-blocking and droppable end to end. Aggregate on server `ingest_time`; client clocks are wrong by years, sometimes.],
+  [In: batched, sampled client events. Out: columnar rows a week of which can be replayed after a transformation bug — and a quarantine table for what fails validation.],
+  [Stateless collectors · Kafka, 7-day retention · ClickHouse, 25 GB/day stored from 250 GB raw · a 1% sample estimates a rate to ±0.1 pp and cuts volume 100×],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

@@ -17,24 +17,34 @@
 
 #h2("1 · Why the dual write cannot be fixed with care", c: red)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M9.1 · outbox + CDC — one commit, so the row and the event cannot disagree")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.4, 8.4, 2.6, "DUAL WRITE — broken", red, rgb("#fdf0ee"))
-  rnode(4.0, 1.7, "svc", "service", "two calls", red, w: 3.2, h: 0.85)
-  cylinder(1.8, -0.2, "db1", "DB", orange, w: 2.6, h: 1.0)
-  rnode(6.4, -0.2, "k1", "Kafka", "", orange, w: 2.4, h: 0.85)
-  line("svc.south", "db1.north", mark: (end: ">"), stroke: hot); badge(2.4, 0.9, "1", green)
-  line("svc.south", "k1.north", mark: (end: ">"), stroke: miss); badge(5.9, 0.9, "2", red)
-  content((4.0, -1.1), dlbl("crash between 1 and 2 -> row exists, event never sent", sz: 6.3pt, c: red))
+  pprereq(-0.3, 20.9, 2.6, "outbox table in the same database as the business rows; a replication slot with monitored lag; idempotent consumers")
 
-  swimlane(9.2, -1.4, 18.4, 2.6, "OUTBOX + CDC — atomic", green, rgb("#f6fbf7"))
-  rnode(12.0, 1.7, "svc2", "service", "ONE transaction", green, w: 3.4, h: 0.85)
-  cylinder(12.0, -0.2, "db2", "DB: rows + outbox", green, w: 4.4, h: 1.0)
-  line("svc2.south", "db2.north", mark: (end: ">"), stroke: hot); badge(12.0, 0.75, "1", green)
-  rnode(16.4, -0.2, "relay", "CDC relay", "Debezium · WAL", purple, w: 3.2, h: 0.9)
-  line("db2.east", "relay.west", mark: (end: ">"), stroke: async); badge(14.4, 0.35, "2", purple)
-  content((13.6, -1.1), dlbl("one commit — row and event cannot disagree", sz: 6.3pt, c: green))
+  ppill(1.65, 0, "in", "place order", w: 3.0)
+  pstep(5.7, 0, "tx", "ONE transaction", "row + outbox · 4ms", st-man, n: 1, actor: "service", w: 4.2)
+  pdec(10.5, 0, "c", "commit\nsucceeded?", w: 1.6)
+  pstep(14.9, 0, "rel", "tail the WAL", "Debezium · sub-100ms", st-auto, n: 2, actor: "CDC relay", w: 4.2)
+  ppill(19.25, 0, "out", "Kafka topic", w: 3.0)
+
+  pstep(10.5, -4.0, "none", "nothing happened", "no row and no event", st-dec, n: 3, actor: "service", w: 4.6)
+
+  line("in.east", "tx.west", mark: (end: ">"), stroke: hot)
+  line("tx.east", "c.west", mark: (end: ">"), stroke: hot)
+  line("c.east", "rel.west", mark: (end: ">"), stroke: hot)
+  plabel(12.55, 0, "yes", c: green, dy: 0.62)
+  line("rel.east", "out.west", mark: (end: ">"), stroke: async)
+  line("c.south", "none.north", mark: (end: ">"), stroke: except)
+  plabel(11.9, -2.1, "no", c: red, dy: 0)
+  content((4.6, -4.2), dlbl("a dual write opens a crash\nwindow here: the row commits,\nthe event is never sent, and the\ntwo disagree permanently", sz: 6.5pt, c: red))
+  content((16.9, -4.2), dlbl("an unconsumed slot pins the\nWAL and the disk fills — alert\non slot lag, not on consumer\nlag alone", sz: 6.5pt, c: red))
 }))
+#pcards(
+  [Outbox rows written inside the business transaction; the replication slot alerted on lag; keyed, idempotent consumers],
+  [In: a business command · Out: a domain event, at-least-once, in commit order. Either both land or neither does],
+  [Postgres logical replication · Debezium · outbox table · Kafka · a slot-lag alert],
+)
 #v(2mm)
 
 #text(size: 9pt)[

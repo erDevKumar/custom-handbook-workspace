@@ -57,22 +57,39 @@
 
 #h2("2 · The design", c: green)
 
-#align(center, cetz.canvas(length: 0.8cm, {
+#pfig("Fig S7.1 · presence at 50M concurrent — the socket IS the state, and TTL expiry IS the offline event")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -2.2, 18.4, 2.0, "PRESENCE = CONNECTION STATE + TTL", blue, rgb("#f4f8fd"))
-  rnode(2.4, 1.0, "u", "clients", "WebSocket", purple, w: 3.0, h: 0.95)
-  rnode(6.8, 1.0, "gw", "edge gateways", "own the sockets", blue, w: 3.8, h: 0.95)
-  rnode(11.4, 1.0, "r", "Redis shard", "SETEX ttl=45s", green, w: 3.6, h: 0.95)
-  rnode(16.2, 1.0, "sub", "subscription fan-out", "on-screen watchers only", orange, w: 4.2, h: 0.95)
-  line("u.east", "gw.west", mark: (end: ">"), stroke: hot)
-  line("gw.east", "r.west", mark: (end: ">"), stroke: hot);  badge(9.2, 1.55, "1", green)
-  line("r.east", "sub.west", mark: (end: ">"), stroke: async); badge(13.9, 1.55, "2", purple)
-  content((9.0, -0.1), dlbl("TTL expiry IS the offline event — no reaper, no tombstones", sz: 6.6pt, c: green))
-  content((9.0, -0.8), dlbl("gateway crash → keys expire in 45 s → users correctly show offline",
-    sz: 6.5pt, c: green))
-  content((9.0, -1.6), dlbl("last_seen written to durable storage only on transition to offline",
-    sz: 6.5pt, c: purple))
+  pprereq(-0.3, 20.7, 3.0, "45s staleness accepted as a product decision; last-seen privacy honoured at the API; sockets held at the edge")
+
+  ppill(1.44, 0, "conn", "socket opens", w: 2.8)
+  pstep(5.66, 0, "gw", "gateway owns it", "no heartbeat write", st-start, n: 1, actor: "edge", w: 4.8)
+  pstep(10.87, 0, "setex", "SETEX user:42 45", "Redis · 3.2GB total", st-auto, n: 2, actor: "presence svc", w: 4.8)
+  pdec(15.69, 0, "ref", "refreshed\nwithin 45s?")
+  ppill(19.56, 0, "online", "shown online", w: 2.8)
+
+  pstep(10.6, -3.6, "exp", "key expires", "the offline event itself", st-integ, n: 3, actor: "redis", w: 4.8)
+  pstep(5.0, -3.6, "sub", "notify watchers", "42k/s × 20, not × 150", st-auto, n: 4, actor: "fan-out", w: 4.8)
+  pstep(16.4, -3.6, "ls", "write last_seen", "on transition · Postgres", st-auto, n: 5, actor: "presence svc", w: 4.8)
+
+  line("conn.east", "gw.west", mark: (end: ">"), stroke: hot)
+  line("gw.east", "setex.west", mark: (end: ">"), stroke: hot)
+  line("setex.east", "ref.west", mark: (end: ">"), stroke: hot)
+  line("ref.east", "online.west", mark: (end: ">"), stroke: hot)
+  plabel(17.5, 0, "yes", c: green, dy: 0.44)
+  line("ref.south", (15.69, -3.6), "exp.east", mark: (end: ">"), stroke: except)
+  plabel(13.6, -2.4, "no — crash or partition", c: red, dy: 0.0)
+  line("exp.west", "sub.east", mark: (end: ">"), stroke: async)
+  line("exp.north", (10.6, -1.8), (20.0, -1.8), (20.0, -3.6), "ls.east", mark: (end: ">"), stroke: cold)
+  plabel(13.5, -1.8, "never on heartbeat", c: orange, dy: 0.34)
+
+  ploop("sub.south", "setex.south", -5.6, "re-SETEX every 20s while the socket lives — no reaper, no tombstones", c: blue)
 }))
+#pcards(
+  [Presence treated as ephemeral and approximate, never as durable state; subscription set bounded by what is on screen; a 45s worst-case staleness the product has signed off],
+  [In: 50M live sockets, refreshed in-gateway · Out: ~42,000 online/offline transitions/s fanned out only to on-screen watchers; `last_seen` written once per session end],
+  [WebSocket gateways (M10) · sharded Redis with `SETEX ttl=45` · subscription-scoped fan-out · Postgres for durable `last_seen`],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

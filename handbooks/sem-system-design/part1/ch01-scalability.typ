@@ -22,27 +22,49 @@
 // ---------------------------------------------------------------- 1.1 --------
 #h2("1.1  Vertical vs. Horizontal", c: blue)
 
-#align(center, cetz.canvas(length: 0.88cm, {
+#pfig("Fig 1.1 · the two ways to add capacity, and what each one buys")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.3, -4.2, 7.9, 1.6, "VERTICAL (scale up)", blue, rgb("#f4f8fd"))
-  rnode(3.8, 0.1, "big", "one bigger box", "64 -> 128 vCPU · 1TB RAM", blue, w: 5.2, h: 1.4)
-  content((3.8, -1.5), dlbl("ceiling: largest SKU money can buy", sz: 6.8pt, c: red))
-  content((3.8, -2.2), dlbl("blast radius: 1 (it IS the system)", sz: 6.8pt, c: red))
-  content((3.8, -2.9), dlbl("resize = restart on most platforms", sz: 6.8pt, c: red))
-  content((3.8, -3.6), dlbl("cost curve: superlinear past mid-range", sz: 6.8pt, c: orange))
+  pprereq(-0.6, 20.6, 3.6, "traffic is measured, the bottleneck is identified, and the migration has a quarter — not a sprint")
 
-  swimlane(8.6, -4.2, 18.3, 1.6, "HORIZONTAL (scale out)", green, rgb("#f6fbf7"))
-  rnode(11.0, 0.5, "n1", "n1", "8 vCPU", green, w: 2.3, h: 0.95)
-  rnode(13.8, 0.5, "n2", "n2", "8 vCPU", green, w: 2.3, h: 0.95)
-  rnode(16.6, 0.5, "n3", "n3", "8 vCPU", green, w: 2.3, h: 0.95)
-  rnode(13.8, -2.1, "lb", "load balancer", "health checks · least-conn", green, w: 5.0, h: 1.1)
-  line("n1.south", (11.0, -1.1), (13.8, -1.1), "lb.north", stroke: hot)
-  line("n2.south", "lb.north", stroke: hot)
-  line("n3.south", (16.6, -1.1), (13.8, -1.1), "lb.north", stroke: hot)
-  content((13.8, -3.1), dlbl("ceiling: coordination cost", sz: 6.8pt, c: orange))
-  content((13.8, -3.8), dlbl("lose 1 node = lose 1/N capacity", sz: 6.8pt, c: green))
-  bracket(8.9, 18.0, -4.6, "add nodes AND a coordination strategy", purple)
+  ppill(2.4, 0, "load", "rising load")
+
+  // VERTICAL — one box grows
+  pstep(7.4, 1.5, "up", "scale UP", "64 → 128 vCPU · 1TB RAM", st-start,
+    n: 1, actor: "one machine", w: 4.4)
+  pstep(7.4, -1.6, "out", "scale OUT", "N × 8 vCPU behind an LB", st-man,
+    n: 2, actor: "a fleet", w: 4.4)
+
+  line("load.east", (4.6, 0), (4.6, 1.5), "up.west", mark: (end: ">"), stroke: hot)
+  line("load.east", (4.6, 0), (4.6, -1.6), "out.west", mark: (end: ">"), stroke: hot)
+
+  pdec(13.0, 1.5, "cap", "biggest SKU?", w: 2.1)
+  pdec(13.0, -1.6, "coord", "coordination?", w: 2.1)
+  line("up.east", "cap.west", mark: (end: ">"), stroke: hot)
+  line("out.east", "coord.west", mark: (end: ">"), stroke: hot)
+
+  pstep(18.4, 1.5, "wall", "hard ceiling", "resize = restart", st-dec,
+    n: 3, actor: "blast radius 1", w: 3.8)
+  pstep(18.4, -1.6, "cost", "soft ceiling", "coordination cost", st-man,
+    n: 4, actor: "lose 1 node = 1/N", w: 3.8)
+  line("cap.east", "wall.west", mark: (end: ">"), stroke: miss)
+  plabel(14.9, 1.5, "yes", c: red)
+  line("coord.east", "cost.west", mark: (end: ">"), stroke: hot)
+  plabel(14.9, -1.6, "then", c: green)
+
+  content((7.4, -3.4), dlbl("cost curve goes superlinear past mid-range", sz: 6.5pt, c: orange))
+  content((15.2, -3.4), dlbl("partial failure · clock skew · cache coherence", sz: 6.5pt, c: purple))
+  bracket(5.0, 20.4, -4.1, "you do not just add nodes — you add nodes AND a coordination strategy", purple)
 }))
+#plegend(
+  ("happy path", hot), ("failure / fallthrough", miss),
+  ("async", async), ("probe", lookup), ("return rail", loopbk),
+)
+#pcards(
+  [A measured bottleneck, and headroom to migrate before the ceiling is hit.],
+  [In: rising request rate. Out: either a bigger SKU, or N interchangeable nodes plus a load balancer.],
+  [Cloud instance SKUs · load balancer with health checks and least-conn · an autoscaler.],
+)
 #v(1.5mm)
 
 #text[
@@ -150,33 +172,46 @@
 ]
 #v(2mm)
 
-#align(center, cetz.canvas(length: 0.86cm, {
+#pfig("Fig 1.2 · state never disappears, it relocates — and that is what makes a node disposable")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.3, -1.4, 18.3, 2.6, "STATELESS — any node serves any request", green, rgb("#f6fbf7"))
-  rnode(2.4, 0.9, "c1", "client", "no affinity", blue, w: 2.8, h: 1.0)
-  rnode(6.6, 0.9, "lb1", "load balancer", "round-robin", blue, w: 3.2, h: 1.0)
-  rnode(11.0, 1.7, "s1", "svc A", "stateless pod", green, w: 2.8, h: 0.9)
-  rnode(11.0, 0.1, "s2", "svc B", "stateless pod", green, w: 2.8, h: 0.9)
-  rnode(15.8, 0.9, "db1", "session store", "Redis · TTL 30m", purple, w: 3.6, h: 1.1)
+  swimlane(-0.6, -1.3, 20.6, 2.6, "STATELESS", green, rgb("#f6fbf7"))
+  content((7.4, 2.25), dlbl("— any node serves any request", sz: 6.8pt, c: green))
+  ppill(2.2, 0.6, "c1", "client · no affinity", w: 4.0)
+  pstep(7.2, 0.6, "lb1", "load balancer", "round-robin · no stickiness", st-start,
+    n: 1, actor: "edge", w: 4.0)
+  pstep(11.8, 1.3, "p1", "pod A", "stateless · killable", st-man, n: 2, actor: "svc", w: 3.4, h: 1.1)
+  pstep(11.8, -0.3, "p2", "pod B", "stateless · killable", st-man, n: 2, actor: "svc", w: 3.4, h: 1.1)
+  pstep(18.2, 0.6, "sess", "session store", "Redis · TTL 30m · ~1ms", st-auto,
+    n: 3, actor: "shared, replicated", w: 4.2)
   line("c1.east", "lb1.west", mark: (end: ">"), stroke: hot)
-  line("lb1.east", "s1.west", mark: (end: ">"), stroke: hot)
-  line("lb1.east", "s2.west", mark: (end: ">"), stroke: hot)
-  line("s1.east", "db1.west", mark: (end: ">"), stroke: async)
-  line("s2.east", "db1.west", mark: (end: ">"), stroke: async)
-  content((13.6, -0.9), dlbl("state pushed OUT -> any pod is disposable", sz: 6.6pt, c: green))
+  line("lb1.east", "p1.west", mark: (end: ">"), stroke: hot)
+  line("lb1.east", "p2.west", mark: (end: ">"), stroke: hot)
+  line("p1.east", "sess.west", mark: (end: ">"), stroke: async)
+  line("p2.east", "sess.west", mark: (end: ">"), stroke: async)
+  content((14.8, -0.95), dlbl("state pushed OUT", sz: 6.4pt, c: purple))
 
-  swimlane(-0.3, -6.6, 18.3, -2.2, "STATEFUL — this client must reach THIS node", red, rgb("#fdf0ee"))
-  rnode(2.4, -4.2, "c2", "client", "pinned", blue, w: 2.8, h: 1.0)
-  rnode(6.8, -4.2, "lb2", "load balancer", "sticky / affinity", red, w: 3.4, h: 1.0)
-  rnode(11.6, -3.4, "t1", "node 1", "[session in RAM]", red, w: 3.2, h: 0.95)
-  rnode(11.6, -5.2, "t2", "node 2", "[session in RAM]", red, w: 3.2, h: 0.95)
+  swimlane(-0.6, -8.0, 20.6, -3.2, "STATEFUL", red, rgb("#fdf0ee"))
+  content((7.6, -3.55), dlbl("— this client must reach THIS node", sz: 6.8pt, c: red))
+  ppill(2.2, -5.0, "c2", "client · pinned", c: red, w: 4.0)
+  pstep(7.2, -5.0, "lb2", "load balancer", "sticky / session affinity", st-dec,
+    n: 1, actor: "edge", w: 4.0)
+  pstep(12.8, -4.3, "n1", "node 1", "[session in RAM]", st-dec, n: 2, actor: "always this one", w: 3.4, h: 1.1)
+  pstep(12.8, -5.9, "n2", "node 2", "[other sessions]", st-dec, n: 2, actor: "svc", w: 3.4, h: 1.1)
+  pdec(18.2, -4.3, "die", "node dies?", w: 2.1)
   line("c2.east", "lb2.west", mark: (end: ">"), stroke: hot)
-  line("lb2.east", "t1.west", mark: (end: ">"), stroke: miss)
-  content((16.2, -3.4), dlbl("node dies ->", sz: 6.6pt, c: red))
-  content((16.2, -4.1), dlbl("session lost,", sz: 6.6pt, c: red))
-  content((16.2, -4.8), dlbl("user logged out", sz: 6.6pt, c: red))
-  content((11.6, -6.2), dlbl("deploy = log everyone out · no rebalancing", sz: 6.6pt, c: red))
+  line("lb2.east", "n1.west", mark: (end: ">"), stroke: hot)
+  plabel(10.3, -4.3, "sticky", c: red, dy: 0.42)
+  line("n1.east", "die.west", mark: (end: ">"), stroke: miss)
+  content((18.2, -6.0), dlbl("session lost ·", sz: 6.4pt, c: red))
+  content((18.2, -6.6), dlbl("user logged out", sz: 6.4pt, c: red))
+  content((7.4, -7.3), dlbl("deploy = log everyone out · no rebalancing", sz: 6.4pt, c: red))
 }))
+#pcards(
+  [An external store exists and is on the critical path; or the protocol genuinely needs a pinned connection.],
+  [In: a request with a session cookie. Out: a response — from any pod (top) or from exactly one node (bottom).],
+  [L7 load balancer · Kubernetes pods · Redis / Memcached session store · connection draining on the sticky path.],
+)
 #v(1.5mm)
 
 #text[
@@ -222,37 +257,42 @@
 ]
 #v(2mm)
 
-#align(center, cetz.canvas(length: 0.86cm, {
+#pfig("Fig 1.3 · what a waiting request costs in each concurrency model")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.3, -3.6, 8.6, 1.7, "THREAD-PER-REQUEST", blue, rgb("#f4f8fd"))
-  rnode(1.9, 0.9, "r1", "req 1", "", blue, w: 1.9, h: 0.7)
-  rnode(1.9, -0.4, "r2", "req 2", "", blue, w: 1.9, h: 0.7)
-  rnode(1.9, -1.7, "r3", "req 3", "", blue, w: 1.9, h: 0.7)
-  rnode(5.3, 0.9, "t1", "thread 1", "~1MB stack", orange, w: 2.6, h: 0.75)
-  rnode(5.3, -0.4, "t2", "thread 2", "~1MB stack", orange, w: 2.6, h: 0.75)
-  rnode(5.3, -1.7, "t3", "thread 3", "~1MB stack", orange, w: 2.6, h: 0.75)
-  line("r1.east", "t1.west", mark: (end: ">"), stroke: hot)
-  line("r2.east", "t2.west", mark: (end: ">"), stroke: hot)
-  line("r3.east", "t3.west", mark: (end: ">"), stroke: hot)
-  content((7.6, 0.9), dlbl("BLOCKED", sz: 6.2pt, c: red))
-  content((7.6, -0.4), dlbl("BLOCKED", sz: 6.2pt, c: red))
-  content((7.6, -1.7), dlbl("running", sz: 6.2pt, c: green))
-  content((4.2, -2.5), dlbl("10k concurrent = 10k threads = 10GB stacks", sz: 6.5pt, c: red))
-  content((4.2, -3.1), dlbl("CPU burns on context switching", sz: 6.5pt, c: red))
+  swimlane(-0.6, -2.0, 20.6, 2.4, "THREAD-PER-REQUEST", blue, rgb("#f4f8fd"))
+  content((8.0, 2.05), dlbl("— one waiter per request", sz: 6.8pt, c: blue))
+  ppill(2.2, 0.4, "ti", "10k requests")
+  pstep(7.4, 0.4, "th", "accept", "1 thread each · ~1MB stack", st-start,
+    n: 1, actor: "kernel", w: 4.2)
+  pdec(12.8, 0.4, "tw", "I/O done?", w: 2.1)
+  pstep(18.0, 0.4, "tr", "respond", "10GB of stacks resident", st-dec, n: 2, actor: "", w: 3.6)
+  line("ti.east", "th.west", mark: (end: ">"), stroke: hot)
+  line("th.east", "tw.west", mark: (end: ">"), stroke: hot)
+  line("tw.east", "tr.west", mark: (end: ">"), stroke: hot)
+  plabel(15.6, 0.4, "yes", c: green)
+  ploop("tw.south", "th.south", -1.3, "no → thread BLOCKS, holding its stack", c: red)
 
-  swimlane(9.4, -3.6, 18.3, 1.7, "EVENT LOOP", green, rgb("#f6fbf7"))
-  rnode(11.2, 0.9, "e1", "req 1", "", blue, w: 1.9, h: 0.7)
-  rnode(11.2, -0.4, "e2", "req 2", "", blue, w: 1.9, h: 0.7)
-  rnode(11.2, -1.7, "e3", "req 3", "", blue, w: 1.9, h: 0.7)
-  rnode(14.6, -0.4, "loop", "event loop", "1 thread / core", green, w: 3.2, h: 1.9)
-  line("e1.east", "loop.west", mark: (end: ">"), stroke: hot)
-  line("e2.east", "loop.west", mark: (end: ">"), stroke: hot)
-  line("e3.east", "loop.west", mark: (end: ">"), stroke: hot)
-  rnode(17.3, -0.4, "q", "epoll", "readiness", purple, w: 2.0, h: 1.3)
-  line("loop.east", "q.west", mark: (end: ">"), stroke: lookup)
-  content((14.0, -2.5), dlbl("100k idle conns = a few hundred bytes each", sz: 6.5pt, c: green))
-  content((14.0, -3.1), dlbl("BUT: one blocking call stalls EVERYONE", sz: 6.5pt, c: red))
+  swimlane(-0.6, -8.6, 20.6, -4.0, "EVENT LOOP", green, rgb("#f6fbf7"))
+  content((6.0, -4.35), dlbl("— one waiter per core", sz: 6.8pt, c: green))
+  ppill(2.2, -6.0, "ei", "100k conns")
+  pstep(7.4, -6.0, "el", "event loop", "1 thread / core", st-man,
+    n: 1, actor: "runtime", w: 4.2)
+  pstep(12.8, -6.0, "ep", "epoll / kqueue", "readiness · ~200 B each", st-auto,
+    n: 2, actor: "kernel", w: 4.2)
+  pstep(18.0, -6.0, "er", "resume cb", "no stack parked", st-man, n: 3, actor: "", w: 3.6)
+  line("ei.east", "el.west", mark: (end: ">"), stroke: hot)
+  line("el.east", "ep.west", mark: (end: ">"), stroke: lookup)
+  line("ep.east", "er.west", mark: (end: ">"), stroke: hot)
+  plabel(15.6, -6.0, "ready", c: green)
+  ploop("er.south", "el.south", -7.5, "callback returns → loop picks the next ready fd", c: green)
+  content((10.2, -9.5), dlbl("BUT one blocking call on this loop stalls EVERY other request", sz: 7pt, c: red))
 }))
+#pcards(
+  [Workload classified I/O-bound or CPU-bound first; on the loop, every library on the path must be non-blocking.],
+  [In: 10k–100k concurrent connections. Out: responses — paid for in RAM and context switches (top) or in blocking risk (bottom).],
+  [OS threads and the kernel scheduler · epoll / kqueue · Node, Netty, nginx, Envoy · a worker pool for CPU work.],
+)
 #v(1.5mm)
 
 #text[

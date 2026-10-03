@@ -50,29 +50,40 @@
 
 #h2("2 · The design", c: green)
 
-#align(center, cetz.canvas(length: 0.8cm, {
+#pfig("Fig S9.1 · webhook delivery — a per-tenant cap is what stops one dead endpoint eating the fleet")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -2.3, 18.4, 2.0, "PER-TENANT QUEUES, CAPPED CONCURRENCY, BREAKERS", green,
-    rgb("#f6fbf7"))
-  rnode(2.2, 1.0, "ev", "event bus", "Kafka (M8)", purple, w: 3.0, h: 0.95)
-  rnode(6.4, 1.0, "rt", "router", "key = tenant_id", blue, w: 3.2, h: 0.95)
+  pprereq(-0.3, 20.7, 3.0, "at-least-once published in the docs with a stable event id; SSRF validation on every customer-supplied URL")
+
+  ppill(1.7, 0, "ev", "2M events/hour", w: 3.2)
+  pstep(6.15, 0, "rt", "key by tenant", "Kafka key · order kept", st-start, n: 1, actor: "router", w: 4.8)
+  pstep(11.4, 0, "cap", "cap 20 in-flight", "per tenant, not fleet", st-auto, n: 2, actor: "dispatcher", w: 4.8)
+  pstep(16.66, 0, "post", "signed POST", "HMAC + ts · 200ms", st-integ, n: 3, actor: "customer", w: 4.8)
+  pdec(15.84, -3.8, "ok", "2xx within\ntimeout?")
+  pstep(10.2, -3.8, "bo", "backoff + jitter", "1s 5s 30s 2m 10m 1h 6h", st-auto, n: 4, actor: "retrier", w: 4.8)
+  pstep(4.6, -3.8, "brk", "breaker opens", "stop hammering it", st-integ, n: 5, actor: "dispatcher", w: 4.8)
+  ppill(19.6, -3.8, "done", "delivered", w: 2.6)
+  ppill(4.6, -7.2, "dlq", "DLQ at 24h, with bodies", c: orange, w: 4.9)
+
   line("ev.east", "rt.west", mark: (end: ">"), stroke: hot)
-  for (i, y) in ((0, 1.6), (1, 0.6), (2, -0.4)).enumerate() {
-    rnode(10.8, y.at(1), "q" + str(i), "tenant " + str(i + 1) + " queue", "cap 20 in-flight",
-      green, w: 3.6, h: 0.7)
-    line("rt.east", "q" + str(i) + ".west", mark: (end: ">"), stroke: lookup)
-  }
-  rnode(15.8, 1.6, "ok", "endpoint ok", "200", green, w: 3.0, h: 0.7)
-  rnode(15.8, 0.6, "slow", "endpoint SLOW", "breaker opens", red, w: 3.0, h: 0.7)
-  rnode(15.8, -0.4, "dlq", "DLQ after 24 h", "customer-visible", orange, w: 3.4, h: 0.7)
-  line("q0.east", "ok.west", mark: (end: ">"), stroke: hot)
-  line("q1.east", "slow.west", mark: (end: ">"), stroke: miss)
-  line("q2.east", "dlq.west", mark: (end: ">"), stroke: miss)
-  content((9.0, -1.3), dlbl("one tenant's backlog NEVER consumes another tenant's capacity",
-    sz: 6.6pt, c: green))
-  content((9.0, -2.0), dlbl("ordering preserved per tenant by partitioning on tenant_id",
-    sz: 6.5pt, c: purple))
+  line("rt.east", "cap.west", mark: (end: ">"), stroke: hot)
+  line("cap.east", "post.west", mark: (end: ">"), stroke: hot)
+  line("post.south", (16.66, -2.0), (15.84, -2.0), "ok.north", mark: (end: ">"), stroke: lookup)
+  line("ok.east", "done.west", mark: (end: ">"), stroke: hot)
+  plabel(18.3, -2.6, "yes", c: green, dy: 0.0)
+  line("ok.west", "bo.east", mark: (end: ">"), stroke: except)
+  plabel(13.4, -2.6, "no — 30s endpoint", c: red, dy: 0.0)
+  line("bo.west", "brk.east", mark: (end: ">"), stroke: except)
+  line("brk.west", (0.9, -3.8), (0.9, -7.2), "dlq.west", mark: (end: ">"), stroke: except)
+  plabel(4.6, -5.5, "customer-visible, ~1GB pending", c: orange, dy: 0.5)
+
+  ploop("brk.south", "cap.south", -5.6, "half-open probe — that tenant's own 20 slots, nobody else's", c: blue)
 }))
+#pcards(
+  [Per-tenant queues and concurrency caps before anything else; durable retry storage; per-tenant HMAC secret; URL scheme and resolved-IP validation],
+  [In: 556 events/s, ~1% failing · Out: at-least-once signed delivery with a stable event id; one tenant's 30s endpoint occupies 20 workers and its own backlog, never the other 90%],
+  [Kafka partitioned on `tenant_id` (M8) · per-tenant dispatcher with a concurrency cap · circuit breaker per endpoint · exponential backoff with full jitter · 24h DLQ with response bodies],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

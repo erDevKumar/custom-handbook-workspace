@@ -22,39 +22,47 @@
 // ---------------------------------------------------------------- 4.1 --------
 #h2("4.1  Percentiles, and why the mean is useless", c: orange)
 
-#align(center, cetz.canvas(length: 0.9cm, {
+#pfig("Fig 4.1 · the right-skewed distribution, and the only correct way to get a fleet percentile from it")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  // axes
-  line((0, 0), (16, 0), stroke: 1.1pt + ink)
-  line((0, 0), (0, 4.2), stroke: 1.1pt + ink)
-  content((8, -0.75), dlbl("latency ->", sz: 7.5pt, c: ink))
-  content((-0.9, 2.1), dlbl("count", sz: 7.5pt, c: ink))
-
-  // right-skewed curve, drawn as a polyline
-  line((0.3, 0.1), (1.4, 1.6), (2.2, 3.4), (3.0, 3.9), (3.9, 3.1), (5.0, 2.0),
-       (6.4, 1.1), (8.2, 0.62), (10.4, 0.38), (12.6, 0.24), (15.4, 0.12),
+  // --- the distribution itself: the skew is the lesson, so it stays drawn ---
+  line((0.6, -1.2), (19.8, -1.2), stroke: 1.1pt + ink)
+  line((0.6, -1.2), (0.6, 2.2), stroke: 1.1pt + ink)
+  content((10.2, -1.85), dlbl("latency →", sz: 7pt, c: ink))
+  content((-0.2, 0.5), dlbl("count", sz: 7pt, c: ink))
+  line((0.9, -1.1), (2.3, -0.1), (3.3, 1.3), (4.3, 1.7), (5.4, 1.1), (6.8, 0.3),
+       (8.6, -0.35), (11.0, -0.68), (13.8, -0.85), (16.5, -0.96), (19.4, -1.06),
        stroke: 1.6pt + blue)
+  line((4.3, -1.2), (4.3, 1.7), stroke: (paint: green, thickness: 1pt, dash: "dashed"))
+  content((4.3, 2.05), dlbl("p50 · 40ms", sz: 6.6pt, c: green))
+  line((5.9, -1.2), (5.9, 0.75), stroke: (paint: purple, thickness: 1.1pt, dash: "dotted"))
+  content((6.9, 1.15), dlbl("mean — lies", sz: 6.6pt, c: purple))
+  line((8.6, -1.2), (8.6, -0.35), stroke: (paint: orange, thickness: 1pt, dash: "dashed"))
+  content((9.2, 0.15), dlbl("p95 · 180ms", sz: 6.6pt, c: orange))
+  line((13.8, -1.2), (13.8, -0.85), stroke: (paint: red, thickness: 1pt, dash: "dashed"))
+  content((14.4, -0.45), dlbl("p99 · 900ms", sz: 6.6pt, c: red))
+  line((18.4, -1.2), (18.4, -1.0), stroke: 1.2pt + red)
+  content((18.4, -0.6), dlbl("p99.9 · 4s", sz: 6.6pt, c: red))
+  bracket(0.8, 19.6, -2.6, "the mean sits between p50 and p95 and describes NOBODY", purple)
 
-  // percentile markers
-  line((3.0, 0), (3.0, 3.9), stroke: (paint: green, thickness: 1pt, dash: "dashed"))
-  content((3.0, 4.35), dlbl("p50", sz: 7pt, c: green))
-  content((3.0, -0.35), dlbl("40ms", sz: 6.5pt, c: green))
-
-  line((6.4, 0), (6.4, 1.1), stroke: (paint: orange, thickness: 1pt, dash: "dashed"))
-  content((6.4, 1.55), dlbl("p95", sz: 7pt, c: orange))
-  content((6.4, -0.35), dlbl("180ms", sz: 6.5pt, c: orange))
-
-  line((10.4, 0), (10.4, 0.38), stroke: (paint: red, thickness: 1pt, dash: "dashed"))
-  content((10.4, 0.85), dlbl("p99", sz: 7pt, c: red))
-  content((10.4, -0.35), dlbl("900ms", sz: 6.5pt, c: red))
-
-  line((14.2, 0), (14.2, 0.16), stroke: (paint: red, thickness: 1.2pt))
-  content((14.2, 0.7), dlbl("p99.9", sz: 7pt, c: red))
-  content((14.2, -0.35), dlbl("4s", sz: 6.5pt, c: red))
-
-  line((4.6, 0), (4.6, 2.4), stroke: (paint: purple, thickness: 1.2pt, dash: "dotted"))
-  content((4.75, 2.85), dlbl("mean -- lies", sz: 7pt, c: purple))
+  // --- the pipeline that turns those samples into a trustworthy number ---
+  pstep(2.6, 5.0, "raw", "raw samples", "per host, per route", st-man, n: 1, actor: "each host", w: 4.0)
+  pstep(7.6, 5.0, "hist", "histogram", "HdrHistogram · t-digest", st-auto, n: 2, actor: "exporter", w: 4.2)
+  pdec(12.2, 5.0, "d", "merge first?", w: 2.0)
+  pstep(18.0, 6.5, "good", "merge buckets", "quantile computed ONCE", st-man, n: 3, actor: "correct", w: 4.2)
+  pstep(18.0, 3.5, "bad", "mean of p99s", "a number that does not exist", st-dec, n: 4, actor: "the default", w: 4.2)
+  line("raw.east", "hist.west", mark: (end: ">"), stroke: hot)
+  line("hist.east", "d.west", mark: (end: ">"), stroke: hot)
+  line("d.east", "good.west", mark: (end: ">"), stroke: hot)
+  plabel(14.9, 5.9, "yes", c: green)
+  line("d.east", "bad.west", mark: (end: ">"), stroke: miss)
+  plabel(14.9, 4.1, "no", c: red, dy: -0.5)
 }))
+#pcards(
+  [Latency recorded as a distribution, not a pre-aggregated average, and exported per host rather than summarised at the host.],
+  [In: raw per-request durations from every host. Out: one fleet quantile — trustworthy only if the histograms were merged first.],
+  [HdrHistogram / t-digest / Prometheus native histograms · a metrics backend that merges buckets server-side.],
+)
 #v(1.5mm)
 
 #text[
@@ -95,29 +103,40 @@
 // ---------------------------------------------------------------- 4.2 --------
 #h2("4.2  Coordinated omission — the bug in your load test", c: red)
 
-#align(center, cetz.canvas(length: 0.9cm, {
+#pfig("Fig 4.2 · coordinated omission — the closed loop stops sending exactly when it should be measuring")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  content((4.2, 2.4), dlbl("WRONG: wait for response, then send next", sz: 8pt, c: red))
-  line((0.4, 1.3), (8.4, 1.3), stroke: 1.1pt + ink)
-  for (i, x) in ((0.8, 0), (2.0, 1), (3.2, 2)).enumerate() {
-    line((x.at(0), 1.3), (x.at(0), 1.75), stroke: 1pt + green)
-  }
-  rect((4.2, 1.05), (7.4, 1.55), stroke: 1pt + red, fill: rgb("#fadbd8"))
-  content((5.8, 1.3), dlbl("one 3s stall", sz: 7pt, c: red))
-  content((5.8, 0.55), dlbl("requests that SHOULD have", sz: 6.5pt, c: red))
-  content((5.8, 0.1), dlbl("been sent here are never sent", sz: 6.5pt, c: red))
-  content((4.2, -0.6), dlbl("-> load generator reports p99 = 50ms. Reality: 3s.", sz: 7pt, c: red))
+  pprereq(-0.4, 20.0, 2.9, "the generator's arrival model is known — closed-loop vs. open-loop is not a detail, it is the result")
 
-  content((13.0, 2.4), dlbl("RIGHT: send on a fixed schedule", sz: 8pt, c: green))
-  line((9.6, 1.3), (17.2, 1.3), stroke: 1.1pt + ink)
-  for x in (10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 16.8) {
-    line((x, 1.3), (x, 1.75), stroke: 1pt + green)
-  }
-  rect((13.0, 1.05), (16.2, 1.55), stroke: 1pt + red, fill: rgb("#fadbd8"))
-  content((14.6, 0.55), dlbl("queued requests keep accruing", sz: 6.5pt, c: green))
-  content((14.6, 0.1), dlbl("latency -- measured honestly", sz: 6.5pt, c: green))
-  content((13.0, -0.6), dlbl("-> p99 reflects what users actually felt.", sz: 7pt, c: green))
+  swimlane(-0.4, -2.1, 20.0, 1.6, "WRONG — closed loop", red, rgb("#fdf0ee"))
+  content((8.6, 1.25), dlbl("send the next request only after the last one returns", sz: 6.6pt, c: red))
+  ppill(2.2, 0.1, "g1", "generator", c: red)
+  pstep(7.0, 0.1, "s1", "server stalls", "one 3s GC pause", st-dec, n: 1, actor: "SUT", w: 3.8)
+  pdec(11.8, 0.1, "w1", "reply yet?", w: 2.0)
+  pstep(17.2, 0.1, "r1", "records 1 sample", "reports p99 = 50ms", st-dec, n: 2, actor: "result", w: 4.4)
+  line("g1.east", "s1.west", mark: (end: ">"), stroke: hot)
+  line("s1.east", "w1.west", mark: (end: ">"), stroke: hot)
+  line("w1.east", "r1.west", mark: (end: ">"), stroke: miss)
+  plabel(14.2, 0.1, "after 3s", c: red)
+  ploop("w1.south", "g1.south", -1.4, "no → generator WAITS; the ~3,000 requests due here are never sent", c: red)
+
+  swimlane(-0.4, -7.9, 20.0, -3.3, "RIGHT — open loop", green, rgb("#f6fbf7"))
+  content((8.6, -3.65), dlbl("send at a fixed arrival rate regardless of responses", sz: 6.6pt, c: green))
+  ppill(2.2, -5.0, "g2", "generator", c: green)
+  pstep(7.0, -5.0, "s2", "server stalls", "the same 3s pause", st-dec, n: 1, actor: "SUT", w: 3.8)
+  pstep(12.2, -5.0, "q2", "queue grows", "arrivals keep accruing", st-auto, n: 2, actor: "in flight", w: 4.0)
+  pstep(17.2, -5.0, "r2", "records ~3,000", "p99 reflects reality: 3s", st-man, n: 3, actor: "result", w: 4.6)
+  line("g2.east", "s2.west", mark: (end: ">"), stroke: hot)
+  line("s2.east", "q2.west", mark: (end: ">"), stroke: miss)
+  line("q2.east", "r2.west", mark: (end: ">"), stroke: hot)
+  ploop("r2.south", "g2.south", -6.4, "fires on a clock, not on a response — nothing is omitted", c: green)
+  content((10.0, -8.6), dlbl("if the load test says p99 = 50ms and production says 2s, suspect THIS before the network", sz: 7pt, c: purple))
 }))
+#pcards(
+  [A stated target arrival rate, and a generator that can hold it when the system under test stops responding.],
+  [In: a fixed request rate against a stalling service. Out: a p99 that is either a measurement artefact (top) or the truth (bottom).],
+  [wrk2 · Gatling constant-rate injection · JMeter throughput shaping · HdrHistogram with omission back-fill.],
+)
 #v(1.5mm)
 
 #text[
@@ -162,25 +181,38 @@
 
 #h3("CPU cache lines — where microsecond tails are born", c: purple)
 
-#align(center, cetz.canvas(length: 0.9cm, {
+#pfig("Fig 4.3 · false sharing — two counters on one cache line, and the padding that separates them")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  content((3.6, 2.0), dlbl("FALSE SHARING", sz: 8pt, c: red))
-  rect((0.6, 0.4), (7.0, 1.5), stroke: 1.3pt + red, radius: 0.08)
-  line((3.8, 0.4), (3.8, 1.5), stroke: (paint: luma(150), dash: "dashed", thickness: 0.7pt))
-  content((2.2, 0.95), dlbl("counter A", sz: 7pt, c: ink))
-  content((5.4, 0.95), dlbl("counter B", sz: 7pt, c: ink))
-  content((3.8, 1.95), dlbl("", sz: 7pt))
-  content((3.8, -0.15), dlbl("ONE 64-byte cache line", sz: 7pt, c: red))
-  content((3.8, -0.75), dlbl("core 1 writes A -> invalidates core 2's copy of B", sz: 6.8pt, c: red))
+  swimlane(-0.6, -2.3, 10.0, 2.6, "FALSE SHARING", red, rgb("#fdf0ee"))
+  pstep(2.4, 1.2, "c1a", "core 1", "writes counter A", st-dec, n: 1, actor: "", w: 3.2, h: 1.1)
+  pstep(7.0, 1.2, "c2a", "core 2", "reads counter B", st-dec, n: 2, actor: "", w: 3.2, h: 1.1)
+  rect((0.8, -1.1), (8.6, -0.1), stroke: 1.3pt + red, radius: 0.08, name: "cl", fill: white)
+  line((4.7, -1.1), (4.7, -0.1), stroke: (paint: luma(150), dash: "dashed", thickness: 0.7pt))
+  content((2.75, -0.6), dlbl("counter A", sz: 7pt, c: ink))
+  content((6.65, -0.6), dlbl("counter B", sz: 7pt, c: ink))
+  content((4.7, -1.75), dlbl("ONE 64-byte cache line", sz: 7pt, c: red))
+  line("c1a.south", (2.4, -0.1), mark: (end: ">"), stroke: miss)
+  line((7.0, -0.1), "c2a.south", mark: (end: ">"), stroke: except)
+  plabel(8.9, 0.25, "invalidated", c: red, dy: 0)
 
-  content((13.2, 2.0), dlbl("PADDED", sz: 8pt, c: green))
-  rect((10.2, 0.4), (13.2, 1.5), stroke: 1.3pt + green, radius: 0.08)
-  content((11.7, 0.95), dlbl("counter A", sz: 7pt, c: ink))
-  rect((13.6, 0.4), (16.6, 1.5), stroke: 1.3pt + green, radius: 0.08)
-  content((15.1, 0.95), dlbl("counter B", sz: 7pt, c: ink))
-  content((13.4, -0.15), dlbl("separate cache lines", sz: 7pt, c: green))
-  content((13.4, -0.75), dlbl("cores no longer fight -- 10x+ on hot counters", sz: 6.8pt, c: green))
+  swimlane(10.8, -2.3, 20.6, 2.6, "PADDED", green, rgb("#f6fbf7"))
+  pstep(13.6, 1.2, "c1b", "core 1", "writes counter A", st-man, n: 1, actor: "", w: 3.2, h: 1.1)
+  pstep(18.2, 1.2, "c2b", "core 2", "reads counter B", st-man, n: 2, actor: "", w: 3.2, h: 1.1)
+  rect((12.0, -1.1), (15.2, -0.1), stroke: 1.3pt + green, radius: 0.08, fill: white)
+  content((13.6, -0.6), dlbl("counter A + pad", sz: 6.8pt, c: ink))
+  rect((16.6, -1.1), (19.8, -0.1), stroke: 1.3pt + green, radius: 0.08, fill: white)
+  content((18.2, -0.6), dlbl("counter B + pad", sz: 6.8pt, c: ink))
+  line("c1b.south", (13.6, -0.1), mark: (end: ">"), stroke: hot)
+  line("c2b.south", (18.2, -0.1), mark: (end: ">"), stroke: hot)
+  content((15.7, -1.75), dlbl("separate cache lines — cores stop fighting", sz: 7pt, c: green))
+  bracket(0.8, 19.8, -2.9, "@Contended (Java) · _ [64]byte padding (Go) · alignas(64) (C++) — or one counter per thread, summed on read", purple)
 }))
+#pcards(
+  [A genuinely hot, multi-core write path — metrics counters, ring-buffer head/tail indices, per-shard statistics.],
+  [In: two threads incrementing adjacent variables. Out: either coherence traffic on every write, or independent lines and 10x+ throughput.],
+  [x86-64 / arm64 cache-coherence protocol · `perf c2c` or VTune to find the sharing · language-level padding annotations.],
+)
 #v(1.5mm)
 
 #text[

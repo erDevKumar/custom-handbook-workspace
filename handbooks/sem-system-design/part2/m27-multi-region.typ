@@ -17,32 +17,36 @@
 
 #h2("1 · Three topologies", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M27.1 · one write in an active–active system, and what a region failure costs it")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  // active-passive
-  content((3.0, 2.5), dlbl("ACTIVE–PASSIVE", sz: 7.5pt, c: blue))
-  rnode(1.8, 1.3, "ap1", "US — active", "all writes", green, w: 3.0, h: 0.8)
-  rnode(1.8, 0.1, "ap2", "EU — standby", "idle", luma(140), w: 3.0, h: 0.8)
-  line("ap1.south", "ap2.north", mark: (end: ">"), stroke: async)
-  content((3.0, -0.9), dlbl("simple · RPO > 0", sz: 6.2pt, c: orange))
-  content((3.0, -1.5), dlbl("half the hardware idle", sz: 6.2pt, c: red))
+  pprereq(-0.4, 20.6, 2.9, "every record has a home region · each region sized for N/(N−1) = 150% of its own load · a witness in a third location")
 
-  // active-active partitioned
-  content((9.0, 2.5), dlbl("ACTIVE–ACTIVE, PARTITIONED", sz: 7.5pt, c: green))
-  rnode(7.8, 1.3, "aa1", "US — US users", "owns its rows", green, w: 3.2, h: 0.8)
-  rnode(7.8, 0.1, "aa2", "EU — EU users", "owns its rows", green, w: 3.2, h: 0.8)
-  line("aa1.east", (10.0, 1.3), (10.0, 0.1), "aa2.east", stroke: (paint: purple, dash: "dashed", thickness: 1pt))
-  content((9.0, -0.9), dlbl("no write conflicts BY CONSTRUCTION", sz: 6.2pt, c: green))
-  content((9.0, -1.5), dlbl("the design that actually works", sz: 6.2pt, c: green))
+  ppill(1.8, 0, "in", "EU user writes", w: 3.6)
+  pstep(6.5, 0, "a", "Anycast route", "BGP shift · seconds", st-integ, n: 1, actor: "routing", w: 4.2)
+  pdec(11.7, 0, "d", "home region up?", w: 2.5)
+  pstep(16.9, 0, "b", "local commit", "1 fsync · 1–5 ms", st-auto, n: 2, actor: "eu-west primary", w: 4.4)
+  pstep(16.9, -3.5, "c", "async replicate", "50–200 ms lag · 10 MB/s", st-auto, n: 3, actor: "", w: 4.6)
+  ppill(9.4, -3.5, "out", "served from EU and US", c: green, w: 5.0)
+  pstep(3.4, -3.5, "x", "quorum promote, or refuse", "witness decides · RTO ≈ 2 min", st-dec, n: 4, actor: "", w: 6.0)
 
-  // active-active shared
-  content((15.2, 2.5), dlbl("ACTIVE–ACTIVE, SHARED", sz: 7.5pt, c: red))
-  rnode(14.0, 1.3, "sh1", "US writes X", "", orange, w: 3.0, h: 0.8)
-  rnode(14.0, 0.1, "sh2", "EU writes X", "", orange, w: 3.0, h: 0.8)
-  line("sh1.east", (16.2, 1.3), (16.2, 0.1), "sh2.east", stroke: miss)
-  content((15.2, -0.9), dlbl("CONFLICT — needs resolution policy", sz: 6.2pt, c: red))
-  content((15.2, -1.5), dlbl("or global consensus at 150 ms/write", sz: 6.2pt, c: red))
+  line("in.east", "a.west", mark: (end: ">"), stroke: hot)
+  line("a.east", "d.west", mark: (end: ">"), stroke: hot)
+  line("d.east", "b.west", mark: (end: ">"), stroke: hot)
+  plabel(14.3, 0, "yes", c: green)
+  line("b.south", "c.north", mark: (end: ">"), stroke: async)
+  plabel(17.9, -1.8, "us-east", c: purple, dy: 0.0)
+  line("c.west", "out.east", mark: (end: ">"), stroke: async)
+  plabel(13.2, -3.5, "RPO > 0", c: purple)
+  line("d.south", (11.7, -1.9), (3.4, -1.9), "x.north", mark: (end: ">"), stroke: except)
+  plabel(7.6, -1.9, "no — region partitioned", c: red, dy: -0.45)
+  content((3.4, -5.1), dlbl("the minority side is fenced; LWW across datacentres is clock skew, not a merge", sz: 6.6pt, c: red))
 }))
+#pcards(
+  [Ownership partitioned by region so cross-region writes never contend. Nothing in the hot path crosses a region boundary — a stray call costs 150 ms.],
+  [In: a write addressed to the record's home region. Out: a local commit, replicated asynchronously; on failure, a fenced minority and a quorum decision.],
+  [Anycast + client-side region list · Postgres / DynamoDB global tables · a third-location witness · 60 MB/s inter-region egress ≈ \$12–15k/month],
+)
 #v(1.5mm)
 
 #key[

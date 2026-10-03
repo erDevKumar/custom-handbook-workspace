@@ -97,6 +97,40 @@
 
 #h2("3 · Making cost visible", c: green)
 
+#block(breakable: false)[
+#pfig("Fig M30.1 · cost attribution — from a tagged resource to the line item you attack")
+#align(center, cetz.canvas(length: 0.76cm, {
+  import cetz.draw: *
+  pprereq(-0.4, 20.6, 2.9, "mandatory team / service / env tags at provision time · a daily billing export · a per-service denominator")
+
+  ppill(2.0, 0, "in", "tagged resource", w: 3.8)
+  pstep(6.6, 0, "a", "billing export", "CUR → S3 · daily", st-integ, n: 1, actor: "cloud billing", w: 4.2)
+  pstep(13.6, 0, "b", "split by owner", "showback, not chargeback", st-auto, n: 2, actor: "finops job", w: 5.2)
+  pstep(18.2, -3.4, "c", "unit cost metric", "$ per 1,000 requests", st-auto, n: 3, actor: "", w: 4.8)
+  pdec(12.6, -3.4, "d", "unit cost rising?", w: 2.5)
+  pstep(6.4, -3.4, "x", "attack the top line", "egress 10–30% before compute", st-dec, n: 4, actor: "", w: 6.0)
+  ppill(2.0, -6.6, "out", "growth, not waste", c: green, w: 4.4)
+
+  line("in.east", "a.west", mark: (end: ">"), stroke: hot)
+  line("a.east", "b.west", mark: (end: ">"), stroke: hot)
+  plabel(9.9, 0, "untagged = unowned", c: orange, dy: 0.95)
+  line("b.east", (20.6, 0), (20.6, -3.4), "c.east", mark: (end: ">"), stroke: hot)
+  content((19.0, -1.7), dlbl("per team,\nper service", sz: 6.3pt, c: green))
+  line("c.west", "d.east", mark: (end: ">"), stroke: hot)
+  line("d.west", "x.east", mark: (end: ">"), stroke: miss)
+  plabel(9.9, -3.4, "yes", c: red)
+  line("d.south", (12.6, -6.6), "out.east", mark: (end: ">"), stroke: hot)
+  plabel(8.0, -6.6, "no — spend up, unit cost flat", c: green, dy: 0.3)
+  content((6.4, -5.2), dlbl("CDN + brotli on 100 TB saves $14,875/month;\nthree months of rightsizing saved $12k", sz: 6.5pt, c: red))
+}))
+#pcards(
+  [Every resource tagged with team, service and environment at provision time, enforced by policy — an untagged resource is a cost nobody will reduce.],
+  [In: the cloud bill plus a per-service denominator. Out: \$ per 1,000 requests by owner, and a ranked list of which line item to attack first.],
+  [Cost and Usage Report → S3 → Athena · per-team showback dashboards · zombie sweeps for unattached volumes and idle load balancers (10–20% of many bills)],
+)
+]
+#v(1.5mm)
+
 #text(size: 9pt)[
   Cost that is not attributable is cost that nobody reduces. The prerequisite is
   #text(fill: green, weight: "bold")[tagging] --- every resource labelled with team, service and

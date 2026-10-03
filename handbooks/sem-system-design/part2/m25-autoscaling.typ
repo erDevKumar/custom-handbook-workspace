@@ -60,23 +60,38 @@
 
 #h2("2 · Why scaling is always late", c: red)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M25.1 · the autoscaling control loop, and the 2–6 minute gap it cannot close")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.5, 18.4, 1.9, "SCALE-UP LATENCY — the gap you must absorb", red, rgb("#fdf0ee"))
-  let step(x, w, lbl, t, c) = {
-    rect((x, 0.2), (x + w, 1.0), stroke: 1pt + c, fill: white)
-    content((x + w / 2, 0.72), dlbl(lbl, sz: 6.2pt, c: ink))
-    content((x + w / 2, 0.4), dlbl(t, sz: 6pt, c: c))
-  }
-  step(0.8, 2.6, "metric window", "30–60 s", orange)
-  step(3.6, 2.2, "HPA poll", "15 s", orange)
-  step(6.0, 2.4, "schedule pod", "5 s", green)
-  step(8.6, 2.8, "node boot?", "60–180 s", red)
-  step(11.6, 2.6, "image pull", "10–60 s", red)
-  step(14.4, 3.0, "readiness probe", "10–30 s", orange)
-  content((9.0, -0.5), dlbl("TOTAL: 2–6 minutes before the new pod serves traffic", sz: 7.5pt, c: red))
-  content((9.0, -1.15), dlbl("a traffic spike lasting 90 s is over before scaling helps", sz: 6.6pt, c: purple))
+  pprereq(-0.4, 20.6, 3.1, "KEDA scaler on Kafka lag · PgBouncer capping DB connections · on-demand baseline + diversified spot pool")
+
+  ppill(1.7, 0, "in", "traffic rises", w: 3.0)
+  pstep(6.3, 0, "a", "metric window", "KEDA · 30–60s", st-auto, n: 1, actor: "scaler", w: 4.0)
+  pdec(11.2, 0, "d", "lag > target?", w: 2.1)
+  pstep(16.9, 0, "b", "schedule pod", "HPA poll 15s + 5s", st-auto, n: 2, actor: "control plane", w: 4.2)
+  pstep(16.9, -3.6, "c", "node boot", "cluster AS · 60–180s", st-integ, n: 3, actor: "cloud api", w: 4.2)
+  pstep(10.6, -3.6, "e", "image pull + ready", "10–60s + 10–30s", st-man, n: 4, actor: "", w: 5.0)
+  ppill(3.6, -3.6, "out", "pod serves traffic", c: green, w: 4.2)
+
+  line("in.east", "a.west", mark: (end: ">"), stroke: hot)
+  line("a.east", "d.west", mark: (end: ">"), stroke: hot)
+  line("d.east", "b.west", mark: (end: ">"), stroke: hot)
+  plabel(13.7, 0, "yes", c: green)
+  line("d.south", (11.2, -1.9), (6.3, -1.9), "a.south", mark: (end: ">"), stroke: loopbk)
+  plabel(8.8, -1.9, "no — hold, 5 min stabilisation window", c: blue, dy: -0.38)
+  line("b.east", (20.4, 0), (20.4, -3.6), "c.east", mark: (end: ">"), stroke: miss)
+  plabel(20.4, -1.8, "no free node", c: red, dy: 0.0)
+  line("c.west", "e.east", mark: (end: ">"), stroke: hot)
+  line("e.west", "out.east", mark: (end: ">"), stroke: hot)
+  plabel(13.7, -3.6, "cold start", c: red)
+  plabel(7.1, -3.6, "ready", c: green)
+  content((3.6, -5.1), dlbl("TOTAL 2–6 min — a 90 s spike is over before this pill is reached", sz: 6.6pt, c: red))
 }))
+#pcards(
+  [Scale on queue depth, not CPU — a blocked worker sits at 15% CPU. Hard replica cap derived from Postgres `max_connections`, not from traffic.],
+  [In: Kafka consumer lag, in-flight concurrency. Out: desired replica count, then pods that actually serve.],
+  [KEDA · HPA · cluster autoscaler · PgBouncer · spot + on-demand node groups],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

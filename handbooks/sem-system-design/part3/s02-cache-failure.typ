@@ -40,24 +40,39 @@
 
 #h2("2 · The solution", c: green)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig S2.1 · Redis gone — the three defences, and which one is the hard guarantee")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -2.2, 18.4, 2.0, "SURVIVE THE MISS STORM", green, rgb("#f6fbf7"))
-  rnode(2.4, 1.0, "svc", "read service", "L1 in-proc still warm", green, w: 4.0, h: 0.95)
-  rnode(7.4, 1.0, "lim", "concurrency limit", "cap DB in-flight", orange, w: 4.2, h: 0.95)
-  rnode(12.4, 1.0, "sf", "single-flight", "collapse duplicate keys", purple, w: 4.4, h: 0.95)
-  cylinder(16.8, 1.0, "db", "primary", orange, w: 2.8, h: 1.0)
-  line("svc.east", "lim.west", mark: (end: ">"), stroke: hot); badge(5.0, 1.55, "2", green)
-  line("lim.east", "sf.west", mark: (end: ">"), stroke: hot);  badge(10.0, 1.55, "3", green)
-  line("sf.east", "db.west", mark: (end: ">"), stroke: lookup)
-  content((2.4, 0.0), dlbl("1 · L1 absorbs the hottest keys", sz: 6.3pt, c: green))
-  content((7.4, 0.0), dlbl("admit ~2,000/s, shed the rest", sz: 6.3pt, c: orange))
-  content((12.4, 0.0), dlbl("10k requests for one key = 1 query", sz: 6.3pt, c: purple))
-  content((9.0, -1.1), dlbl("4 · serve stale from L1 rather than fail — staleness beats absence",
-    sz: 6.6pt, c: green))
-  content((9.0, -1.8), dlbl("5 · rebuild Redis cold, warming from the DB at a THROTTLED rate",
-    sz: 6.6pt, c: purple))
+  pprereq(-0.3, 20.7, 3.0, "per-endpoint staleness budget recorded in advance; L1 LRU in every pod; DB concurrency measured, not guessed")
+
+  ppill(1.4, 0, "fail", "Redis down", c: red, w: 2.6)
+  pstep(5.56, 0, "l1", "L1 in-proc LRU", "hot 1-5% still warm", st-auto, n: 1, actor: "read svc", w: 4.8)
+  pstep(10.81, 0, "sf", "single-flight", "10k reqs/key → 1 query", st-auto, n: 2, actor: "read svc", w: 4.8)
+  pdec(15.67, 0, "cap", "in-flight\n< 2,000?")
+  ppill(19.42, 0, "fast", "fast 503", c: red, w: 2.6)
+
+  pstep(10.4, -3.6, "db", "primary read", "Postgres · 2,000/s cap", st-integ, n: 3, actor: "database", w: 4.8)
+  pstep(4.6, -3.6, "warm", "throttled warm", "shadow 5% into new Redis", st-auto, n: 4, actor: "backfill job", w: 4.8)
+  ppill(18.4, -3.6, "stale", "stale + header", w: 3.2)
+
+  line("fail.east", "l1.west", mark: (end: ">"), stroke: miss)
+  line("l1.east", "sf.west", mark: (end: ">"), stroke: miss)
+  line("sf.east", "cap.west", mark: (end: ">"), stroke: hot)
+  line("cap.east", "fast.west", mark: (end: ">"), stroke: except)
+  plabel(17.3, 0, "no", c: red)
+  line("cap.south", (15.67, -3.6), "db.east", mark: (end: ">"), stroke: lookup)
+  plabel(13.6, -2.4, "yes — admit", c: green, dy: 0.0)
+  line("db.west", "warm.east", mark: (end: ">"), stroke: cold)
+  line("fast.south", (19.42, -3.6), "stale.east", mark: (end: ">"), stroke: hot)
+  plabel(18.7, -1.8, "stale beats absent", c: green, dy: 0.34)
+
+  ploop("warm.west", "l1.south", -5.4, "re-route only once the new Redis is above an 80% hit rate", c: blue)
 }))
+#pcards(
+  [Cache reclassified as a tier-0 dependency, not an optimisation; staleness budget per endpoint; L1 sized to the hot set],
+  [In: 20,000 reads/s with 0% Redis hit rate · Out: ~2,000/s served from the primary, the hot set from L1, the excess a fast 503 or a marked-stale body],
+  [In-process LRU (M5) · stampede lock / single-flight · concurrency limiter (M20) · Postgres primary · throttled Redis warm-up],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

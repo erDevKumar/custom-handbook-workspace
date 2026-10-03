@@ -30,24 +30,42 @@
 
 #h2("2 · The solution — one key, carried end to end", c: green)
 
-#align(center, cetz.canvas(length: 0.8cm, {
+#pfig("Fig S4.1 · one key, generated at intent — the dedupe insert is what decides first-or-replay")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -2.2, 18.4, 2.0, "ONE KEY, GENERATED ONCE, CARRIED EVERYWHERE", green,
-    rgb("#f6fbf7"))
-  rnode(2.2, 1.0, "app", "mobile app", "UUIDv7 at intent", purple, w: 3.4, h: 0.95)
-  rnode(6.6, 1.0, "gw", "gateway", "passes through", blue, w: 2.8, h: 0.95)
-  rnode(10.6, 1.0, "ord", "order svc", "dedupe table", green, w: 3.0, h: 0.95)
-  rnode(14.6, 1.0, "pay", "payment svc", "derives child key", green, w: 3.2, h: 0.95)
-  cylinder(17.6, 1.0, "psp", "processor", orange, w: 2.4, h: 0.95)
-  for (a, b) in (("app", "gw"), ("gw", "ord"), ("ord", "pay"), ("pay", "psp")) {
-    line(a + ".east", b + ".west", mark: (end: ">"), stroke: hot)
-  }
-  content((9.0, -0.1), dlbl("Idempotency-Key: 018f3c...  — never regenerated on retry", sz: 6.5pt, c: purple))
-  content((9.0, -0.85), dlbl("each service stores (key → response) and REPLAYS the stored result",
-    sz: 6.5pt, c: green))
-  content((9.0, -1.6), dlbl("payment key = hash(parent key + \"charge\") — stable across retries",
-    sz: 6.5pt, c: orange))
+  pprereq(-0.3, 20.7, 3.0, "key generated at intent, persisted on the device; dedupe insert and business write in ONE transaction; 72h")
+
+  ppill(1.6, 0, "tap", "user taps Pay", w: 3.0)
+  pstep(5.96, 0, "key", "UUIDv7 at intent", "stored locally · M14", st-man, n: 1, actor: "mobile app", w: 4.8)
+  pstep(11.21, 0, "gw", "gateway", "key passes through", st-start, n: 2, actor: "edge", w: 4.8)
+  pdec(16.07, 0, "ins", "INSERT key\nsucceeds?")
+  pstep(18.5, -3.6, "rep", "replay the body", "same status, same id", st-auto, n: 5, actor: "order svc", w: 4.8)
+
+  pstep(10.4, -3.6, "work", "do the work", "charge + store response", st-auto, n: 3, actor: "order svc", w: 4.8)
+  pstep(4.8, -3.6, "child", "derived child key", "hash(parent+op)", st-auto, n: 4, actor: "payment svc", w: 4.8)
+  ppill(2.0, -7.0, "psp", "Stripe charge", c: orange, w: 3.0)
+  ppill(14.6, -7.0, "poll", "409 — client polls", c: red, w: 4.0)
+
+  line("tap.east", "key.west", mark: (end: ">"), stroke: hot)
+  line("key.east", "gw.west", mark: (end: ">"), stroke: hot)
+  line("gw.east", "ins.west", mark: (end: ">"), stroke: hot)
+  line("ins.north", (16.07, 1.9), (18.5, 1.9), "rep.north", mark: (end: ">"), stroke: except)
+  plabel(17.1, 1.9, "no — key already taken", c: red, dy: 0.34)
+  line("ins.south", (16.07, -3.6), "work.east", mark: (end: ">"), stroke: hot)
+  plabel(13.6, -2.4, "yes — first", c: green, dy: 0.0)
+  line("work.west", "child.east", mark: (end: ">"), stroke: hot)
+  line("child.south", (4.8, -7.0), "psp.east", mark: (end: ">"), stroke: lookup)
+  plabel(3.3, -5.6, "stable key", c: orange, dy: 0.0)
+  line("rep.south", (18.5, -7.0), "poll.east", mark: (end: ">"), stroke: except)
+  plabel(16.9, -5.6, "in_progress", c: red, dy: 0.0)
+
+  ploop("poll.west", "ins.south", -8.8, "sweeper fails in_progress rows older than the max request duration", c: blue)
 }))
+#pcards(
+  [The key survives app restart, network loss and process death; unique constraint on `idempotency(key)`; a sweeper for stuck `in_progress` rows],
+  [In: one `Idempotency-Key` per user intent, carried unchanged through every hop · Out: exactly one charge; every retry gets the stored response verbatim, or a 409 while the original is in flight],
+  [UUIDv7 client-side · `INSERT … VALUES (?, 'in_progress')` on Postgres · derived child keys for the PSP · 3GB of stored responses at 72h retention · stuck-row sweeper],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

@@ -17,22 +17,36 @@
 
 #h2("1 · Durable execution — the event history", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M33.1 · a durable workflow surviving a worker crash by replaying its history")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -2.2, 18.4, 2.1, "REPLAY RECONSTRUCTS STATE — the worker holds nothing", purple,
-    rgb("#f5eefa"))
-  rnode(2.6, 1.2, "code", "workflow code", "looks synchronous", green, w: 4.0, h: 0.9)
-  rnode(8.4, 1.2, "svc", "Temporal / Cadence", "schedules + persists", purple, w: 4.6, h: 0.9)
-  cylinder(14.6, 1.2, "hist", "event history", purple, w: 4.0, h: 1.1)
-  line("code.east", "svc.west", mark: (end: ">"), stroke: hot); badge(5.5, 1.7, "1", green)
-  line("svc.east", "hist.west", mark: (end: ">"), stroke: hot); badge(11.5, 1.7, "2", green)
+  pprereq(-0.4, 20.6, 2.9, "no clock, randomness or I/O inside the workflow · an idempotency key on every activity · versioned definitions")
 
-  content((2.6, -0.2), dlbl("worker dies", sz: 6.6pt, c: red))
-  line("hist.south", (14.6, -0.9), (2.6, -0.9), "code.south", mark: (end: ">"), stroke: async)
-  badge(8.6, -0.9, "3", purple)
-  content((8.6, -1.5), dlbl("new worker replays the history -> resumes at the exact step",
-    sz: 6.6pt, c: green))
+  ppill(2.2, 0, "in", "order placed", w: 3.6)
+  pstep(7.0, 0, "a", "workflow code", "looks synchronous · Go SDK", st-man, n: 1, actor: "worker", w: 5.0)
+  pstep(14.2, 0, "b", "append event history", "Temporal → Cassandra · 100+ events", st-auto, n: 2, actor: "service", w: 6.4)
+  pdec(18.7, -3.4, "d", "worker alive?", w: 2.2)
+  pstep(12.8, -3.4, "c", "replay to the last step", "completed activities not re-run", st-auto, n: 3, actor: "new worker", w: 6.2)
+  ppill(2.8, -3.4, "out", "resumes mid-process", c: green, w: 4.8)
+  pstep(12.6, -6.6, "x", "continue-as-new", "history reset · unbounded loops", st-dec, n: 4, actor: "", w: 5.6)
+
+  line("in.east", "a.west", mark: (end: ">"), stroke: hot)
+  line("a.east", "b.west", mark: (end: ">"), stroke: hot)
+  plabel(10.6, 0, "each decision", c: green, dy: 0.9)
+  line("b.east", (20.6, 0), (20.6, -3.4), "d.east", mark: (end: ">"), stroke: hot)
+  line("d.west", "c.east", mark: (end: ">"), stroke: async)
+  plabel(16.5, -3.4, "crashed", c: red, dy: 0.62)
+  line("c.west", "out.east", mark: (end: ">"), stroke: hot)
+  plabel(7.7, -3.4, "state rebuilt, not stored", c: green, dy: 0.62)
+  line("d.south", (18.7, -6.6), "x.east", mark: (end: ">"), stroke: except)
+  plabel(16.9, -6.6, "history limit", c: red, dy: -0.42)
+  content((4.6, -6.6), dlbl("a three-day sleep and a human approval cost nothing\nin memory — the worker holds no state at all", sz: 6.5pt, c: purple))
 }))
+#pcards(
+  [Determinism is the price: replay must take the branches it took the first time, so clocks, randomness and I/O live in activities whose results are recorded.],
+  [In: a start signal plus activity results. Out: an append-only history that any worker can replay, and the answer to "where is order 12345 right now".],
+  [Temporal / Cadence · Cassandra or Postgres behind it — 10 GB/day at 100k workflows · `GetVersion` patching · `continue-as-new` for anything that loops],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

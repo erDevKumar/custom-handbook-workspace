@@ -16,29 +16,45 @@
 
 #h2("1 · The inverted index", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M17.1 · a document becomes postings; a keystroke and a query take different paths out")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -2.4, 18.4, 2.3, "INDEXING PIPELINE", orange, rgb("#fdf7f2"))
-  rnode(2.3, 1.3, "doc", "document", "\"The Quick Fox\"", purple, w: 3.4, h: 0.9)
-  rnode(6.5, 1.3, "tok", "tokenise", "split · lowercase", blue, w: 3.2, h: 0.9)
-  rnode(10.6, 1.3, "filt", "filter", "stopwords · stem", blue, w: 3.0, h: 0.9)
-  rnode(15.0, 1.3, "idx", "postings", "term → doc ids", green, w: 3.6, h: 0.9)
-  line("doc.east", "tok.west", mark: (end: ">"), stroke: hot); badge(4.4, 1.75, "1", green)
-  line("tok.east", "filt.west", mark: (end: ">"), stroke: hot); badge(8.6, 1.75, "2", green)
-  line("filt.east", "idx.west", mark: (end: ">"), stroke: hot); badge(12.8, 1.75, "3", green)
-  content((6.5, 0.4), dlbl("[the, quick, fox]", sz: 6.2pt, c: luma(110)))
-  content((10.6, 0.4), dlbl("[quick, fox]", sz: 6.2pt, c: luma(110)))
+  pprereq(-0.4, 20.6, 3.0, "the index is a derived projection — the DB is the source of truth · clients query through an alias, never an index name")
 
-  // postings lists
-  content((3.0, -0.6), dlbl("POSTINGS", sz: 7pt, c: green))
-  for (i, t) in (("quick", "→ 1, 7, 12, 44"), ("fox", "→ 1, 9"), ("brown", "→ 3, 7")).enumerate() {
-    content((2.2, -1.2 - i * 0.55), dlbl(t.at(0), sz: 6.4pt, c: orange))
-    content((5.2, -1.2 - i * 0.55), dlbl(t.at(1), sz: 6.4pt, c: ink))
-  }
-  content((12.4, -0.9), dlbl("query \"quick fox\" = INTERSECT the two lists", sz: 6.6pt, c: green))
-  content((12.4, -1.5), dlbl("sorted lists -> merge in O(n+m), not O(n*m)", sz: 6.4pt, c: purple))
-  content((12.4, -2.1), dlbl("score by BM25: term rarity x frequency x field length", sz: 6.4pt, c: blue))
+  // indexing row
+  ppill(1.7, 0, "doc", "\"The Quick Fox\"", w: 3.2, c: purple)
+  pstep(6.2, 0, "tok", "tokenise", "ICU analyzer · 20µs/doc", st-auto, n: 1, actor: "indexer", w: 3.4)
+  pstep(10.8, 0, "filt", "stopword + stem", "lowercase, porter2 · 10µs", st-auto, n: 2, actor: "indexer", w: 3.8)
+  pstep(15.6, 0, "seg", "append segment", "Lucene, immutable · 1s", st-auto, n: 3, actor: "shard", w: 4.0)
+  ppill(19.6, 0, "post", "postings", w: 2.2, c: green)
+
+  line("doc.east", "tok.west", mark: (end: ">"), stroke: hot)
+  line("tok.east", "filt.west", mark: (end: ">"), stroke: hot)
+  line("filt.east", "seg.west", mark: (end: ">"), stroke: hot)
+  line("seg.east", "post.west", mark: (end: ">"), stroke: hot)
+  ploop("post.north", "seg.north", 1.95, "merge drops tombstones · p99 spikes here", c: purple)
+
+  // query row
+  pdec(3.0, -3.8, "d", "keystroke?", w: 1.9)
+  pstep(9.6, -3.8, "ta", "exact key GET", "Redis top-k prefix · 0.3ms", st-man, n: 4, actor: "typeahead", w: 4.6)
+  pstep(9.6, -7.0, "mrg", "merge postings", "O(n+m), sorted doc ids · 4ms", st-auto, n: 5, actor: "coordinator", w: 4.6)
+  pstep(15.4, -7.0, "bm", "BM25 score", "rarity × tf × field len · 3ms", st-auto, n: 6, actor: "shard", w: 4.4)
+  ppill(19.4, -5.4, "out", "top 10 hits", w: 2.8, c: green)
+
+  line("post.south", (19.6, -2.1), (3.0, -2.1), "d.north", mark: (end: ">"), stroke: wrap)
+  line("d.east", "ta.west", mark: (end: ">"), stroke: lookup)
+  plabel(6.3, -3.8, "yes", c: green)
+  line("d.south", "mrg.west", mark: (end: ">"), stroke: hot)
+  plabel(6.4, -5.9, "no — full query", c: luma(110), dy: 0)
+  line("mrg.east", "bm.west", mark: (end: ">"), stroke: hot)
+  line("ta.east", "out.west", mark: (end: ">"), stroke: hot)
+  line("bm.east", "out.west", mark: (end: ">"), stroke: hot)
 }))
+#pcards(
+  [Explicit mappings with `dynamic: strict`; shards sized 20–40 GB so a query fans out to 4, not 50],
+  [In: 100M docs × 1 KB → ~40 GB inverted index · Out: 10 scored hits, or 10 precomputed completions in < 1 ms],
+  [Lucene / Elasticsearch (alias-fronted) · Redis for the prefix→top-k table (10M prefixes ≈ 4 GB) · CDC from the primary store],
+)
 #v(2mm)
 
 #text(size: 9pt)[

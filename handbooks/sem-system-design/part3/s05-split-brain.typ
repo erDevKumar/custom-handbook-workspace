@@ -30,20 +30,42 @@
 
 #h2("2 · The response, in two phases", c: green)
 
-#align(center, cetz.canvas(length: 0.8cm, {
+#pfig("Fig S5.1 · split brain — freeze, pick one authority, then classify before touching a balance")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.4, 18.4, 2.0, "CONTAIN FIRST, RECONCILE SECOND", red, rgb("#fdf0ee"))
-  rnode(2.4, 1.0, "a", "1 · FREEZE", "stop both regions", red, w: 3.2, h: 0.95)
-  rnode(6.6, 1.0, "b", "2 · pick authority", "one region wins", orange, w: 3.6, h: 0.95)
-  rnode(11.0, 1.0, "c", "3 · classify", "overlap vs disjoint", purple, w: 3.4, h: 0.95)
-  rnode(15.6, 1.0, "d", "4 · reconcile", "ledger entries, not edits", green, w: 4.2, h: 0.95)
-  for (x, y) in (("a", "b"), ("b", "c"), ("c", "d")) {
-    line(x + ".east", y + ".west", mark: (end: ">"), stroke: hot)
-  }
-  content((9.0, -0.3), dlbl("NEVER resume writes before the authority is chosen", sz: 6.6pt, c: red))
-  content((9.0, -0.95), dlbl("every correction is a NEW ledger entry — the history is evidence",
-    sz: 6.5pt, c: green))
+  pprereq(-0.3, 20.7, 3.0, "the authority rule is decided BEFORE the incident; append-only ledger so corrections are entries, not edits")
+
+  ppill(1.42, 0, "part", "11min split", c: red, w: 2.8)
+  pstep(5.62, 0, "det", "two primaries", "quorum alarm · 30s", st-man, n: 1, actor: "on-call", w: 4.8)
+  pstep(10.81, 0, "frz", "FREEZE both", "writes off, reads on", st-integ, n: 2, actor: "commander", w: 4.8)
+  pdec(15.61, 0, "auth", "pre-agreed\nauthority?")
+  ppill(19.53, 0, "stall", "stay frozen", c: red, w: 2.9)
+
+  pstep(10.4, -3.6, "cls", "classify 1.32M", "disjoint vs conflicting", st-auto, n: 3, actor: "recon job", w: 4.8)
+  pstep(4.4, -3.6, "auto", "auto-merge 99%", "disjoint + deposits", st-auto, n: 4, actor: "recon job", w: 4.8)
+  pstep(17.6, -3.6, "hum", "human queue", "~500-5,000 · 24-48h", st-man, n: 5, actor: "support", w: 4.8)
+  ppill(11.0, -7.0, "live", "writes resume on the winner", w: 5.6)
+
+  line("part.east", "det.west", mark: (end: ">"), stroke: miss)
+  line("det.east", "frz.west", mark: (end: ">"), stroke: hot)
+  line("frz.east", "auth.west", mark: (end: ">"), stroke: hot)
+  line("auth.east", "stall.west", mark: (end: ">"), stroke: except)
+  plabel(18.5, 0, "no rule", c: red, dy: 0.62)
+  line("auth.south", (15.61, -3.6), "cls.east", mark: (end: ">"), stroke: hot)
+  plabel(13.6, -2.4, "yes — loser read-only", c: green, dy: 0.0)
+  line("cls.west", "auto.east", mark: (end: ">"), stroke: hot)
+  line("cls.north", (10.4, -2.0), (17.6, -2.0), "hum.north", mark: (end: ">"), stroke: except)
+  plabel(14.0, -1.8, "two spends, one balance", c: red, dy: 0.34)
+  line("auto.south", (4.4, -7.0), "live.west", mark: (end: ">"), stroke: hot)
+  plabel(6.4, -7.0, "negative first", c: orange, dy: 0.44)
+
+  ploop("hum.south", "cls.south", -5.6, "exposure-ordered re-check after each adjustment", c: blue)
 }))
+#pcards(
+  [One authority per linearizable object; a written rule naming which region wins; tooling that shows a reviewer both versions, both timestamps, both histories],
+  [In: 1.32M transactions written on both sides of an 11-minute split · Out: ~99% merged mechanically, 500-5,000 accounts escalated, every correction a new compensating ledger entry],
+  [Quorum / lease manager · write freeze at the gateway · reconciliation job over both regions' logs · append-only ledger · support review queue ordered by financial exposure],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

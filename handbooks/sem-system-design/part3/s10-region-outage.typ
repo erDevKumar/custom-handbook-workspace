@@ -56,23 +56,42 @@
 
 #h2("2 · Execution", c: green)
 
-#align(center, cetz.canvas(length: 0.8cm, {
+#pfig("Fig S10.1 · region failover — the decision is pre-authorised, and fencing is the step that is skipped")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.5, 18.4, 1.9, "DECIDE, PROMOTE, SHIFT, RECONCILE", red, rgb("#fdf0ee"))
-  let ph(x, n, l, s, c) = rnode(x, 0.9, n, l, s, c, w: 3.3, h: 1.0)
-  ph(2.2, "a", "1 · confirm", "region, not us", blue)
-  ph(6.0, "b", "2 · DECIDE", "named human", red)
-  ph(9.8, "c", "3 · promote", "fence the old", orange)
-  ph(13.6, "d", "4 · shift traffic", "anycast / client", green)
-  ph(17.2, "e", "5 · reconcile", "after recovery", purple)
-  for (x, y) in (("a","b"),("b","c"),("c","d"),("d","e")) {
-    line(x + ".east", y + ".west", mark: (end: ">"), stroke: hot)
-  }
-  content((9.0, -0.4), dlbl("FENCING is the step teams forget — the old primary must never write again",
-    sz: 6.6pt, c: red))
-  content((9.0, -1.1), dlbl("without it, a partially-recovered region resumes writing: split brain (S5)",
-    sz: 6.5pt, c: red))
+  pprereq(-0.3, 20.7, 3.0, "standby sized at 200% of its own load (M27); secrets and runbook exercised; threshold pre-authorised so on-call needs no VP")
+
+  ppill(2.5, 0, "down", "primary region dark", c: red, w: 4.8)
+  pstep(7.75, 0, "conf", "confirm the region", "3rd-location probes", st-man, n: 1, actor: "on-call", w: 4.8)
+  pdec(12.61, 0, "thr", "10min, no\nprovider ETA?")
+  pstep(17.46, 0, "wait", "keep waiting", "down, but no data loss", st-man, n: 2, actor: "commander", w: 4.8)
+
+  pstep(16.4, -3.8, "prom", "promote standby", "60s · ~1,000 writes lost", st-auto, n: 3, actor: "commander", w: 4.8)
+  pstep(10.6, -3.8, "fence", "FENCE the old", "revoke creds + topology", st-integ, n: 4, actor: "commander", w: 4.8)
+  pstep(5.0, -3.8, "shift", "shift traffic", "anycast > DNS · 15-30min", st-auto, n: 5, actor: "edge", w: 4.8)
+  ppill(5.0, -7.2, "rec", "reconcile from old logs", w: 4.9)
+  ppill(16.4, -7.2, "sb", "split brain (S5)", c: red, w: 3.6)
+
+  line("down.east", "conf.west", mark: (end: ">"), stroke: miss)
+  line("conf.east", "thr.west", mark: (end: ">"), stroke: hot)
+  line("thr.east", "wait.west", mark: (end: ">"), stroke: except)
+  plabel(14.8, 0, "no", c: red, dy: 0.44)
+  line("thr.south", (12.61, -1.9), (16.4, -1.9), "prom.north", mark: (end: ">"), stroke: hot)
+  plabel(13.9, -1.9, "yes — named owner declares", c: green, dy: 0.34)
+  line("prom.west", "fence.east", mark: (end: ">"), stroke: hot)
+  line("fence.west", "shift.east", mark: (end: ">"), stroke: hot)
+  line("fence.south", (10.6, -7.2), "sb.west", mark: (end: ">"), stroke: except)
+  plabel(11.9, -7.2, "skip fencing, you built this", c: red, dy: 0.44)
+  line("shift.west", (0.9, -3.8), (0.9, -7.2), "rec.west", mark: (end: ">"), stroke: async)
+  plabel(5.0, -5.6, "lag-window writes as ledger entries", c: purple, dy: 0.34)
+
+  ploop("wait.south", "conf.south", -5.6, "re-probe every 2min against the same written threshold", c: blue)
 }))
+#pcards(
+  [A standby that has actually served production traffic; N/(N−1) capacity; credentials and runbook verified on a calm day; a written failover threshold with a named owner],
+  [In: a dark region at 5,000 writes/s with 200ms replication lag · Out: the standby serving in 15-30 minutes, ~1,000 writes knowingly lost and later compensated, the old primary unable to write],
+  [External probes from a third location · promotion tooling · credential revocation and topology fencing · anycast withdrawal / client-side region list · reconciliation from the old region's logs],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

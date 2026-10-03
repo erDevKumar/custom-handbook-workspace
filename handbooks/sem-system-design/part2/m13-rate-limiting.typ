@@ -14,38 +14,35 @@
 ]
 #v(2mm)
 
-#h2("1 · The four algorithms", c: blue)
+#h2("1 · The decision path, and the four algorithms", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M13.1 · one request through a sliding-window limiter, and where it is refused")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  // token bucket
-  content((3.0, 2.6), dlbl("TOKEN BUCKET — allows bursts", sz: 7.5pt, c: green))
-  rect((1.6, 0.2), (4.4, 2.0), stroke: 1.3pt + green, radius: 0.1)
-  for (i, y) in ((0, 0.5), (1, 0.95), (2, 1.4)).enumerate() {
-    for k in range(4) { circle((2.0 + k * 0.6, y.at(1)), radius: 0.16, stroke: 0.8pt + green) }
-  }
-  content((3.0, -0.4), dlbl("refill r/s, cap B", sz: 6.4pt, c: green))
-  content((3.0, -1.0), dlbl("burst up to B, then r/s", sz: 6.4pt, c: purple))
+  pprereq(-0.4, 20.6, 2.6, "limit keyed by authenticated identity, not IP · failure policy chosen per endpoint")
 
-  // leaky bucket
-  content((8.4, 2.6), dlbl("LEAKY BUCKET — smooths", sz: 7.5pt, c: blue))
-  line((7.0, 2.0), (7.6, 0.4), (9.2, 0.4), (9.8, 2.0), stroke: 1.3pt + blue)
-  for k in range(3) { circle((8.4, 0.8 + k * 0.45), radius: 0.16, stroke: 0.8pt + blue) }
-  line((8.4, 0.3), (8.4, -0.3), mark: (end: ">"), stroke: 1.1pt + blue)
-  content((8.4, -0.75), dlbl("constant drain rate", sz: 6.4pt, c: blue))
-  content((8.4, -1.35), dlbl("no bursts — queues or drops", sz: 6.4pt, c: purple))
+  ppill(1.4, 0, "in", "API request", w: 2.8)
+  pstep(5.5, 0, "k", "derive key", "Envoy filter · 0.1ms", st-integ, n: 1, actor: "gateway", w: 3.2)
+  pstep(10.3, 0, "lua", "atomic check", "Redis Lua · 0.2ms", st-auto, n: 2, actor: "limiter", w: 3.6)
+  pdec(14.9, 0, "d", "under limit?", w: 1.9)
+  pstep(19.0, 0, "ok", "serve", "origin svc · 40ms", st-man, n: 3, actor: "service", w: 3.0)
 
-  // sliding window
-  content((14.4, 2.6), dlbl("SLIDING WINDOW — accurate", sz: 7.5pt, c: orange))
-  line((11.6, 1.2), (17.2, 1.2), stroke: 1.2pt + ink)
-  rect((12.2, 0.9), (15.4, 1.5), stroke: (paint: orange, dash: "dashed", thickness: 1pt))
-  for x in (12.5, 12.9, 13.6, 14.2, 14.9, 15.2, 16.0, 16.6) {
-    line((x, 1.2), (x, 1.75), stroke: 1.1pt + orange)
-  }
-  content((13.8, 0.45), dlbl("window slides with now()", sz: 6.4pt, c: orange))
-  content((14.4, -0.4), dlbl("exact, but stores every timestamp", sz: 6.4pt, c: red))
-  content((14.4, -1.0), dlbl("counter variant: 2 buckets + weighting", sz: 6.4pt, c: green))
+  pstep(14.9, -3.4, "shed", "429 + Retry-After", "RateLimit-* hdrs · 0.3ms", st-dec, n: 4, w: 4.6)
+
+  line("in.east", "k.west", mark: (end: ">"), stroke: hot)
+  line("k.east", "lua.west", mark: (end: ">"), stroke: hot)
+  line("lua.east", "d.west", mark: (end: ">"), stroke: lookup)
+  line("d.east", "ok.west", mark: (end: ">"), stroke: hot)
+  plabel(16.8, 0, "yes", c: green)
+  line("d.south", "shed.north", mark: (end: ">"), stroke: except)
+  plabel(17.2, -1.7, "no — over 100/min", c: red, dy: 0)
+  ploop("shed.west", "in.south", -4.6, "client waits Retry-After, then retries", c: red)
 }))
+#pcards(
+  [Redis reachable and on the request's critical path; per-endpoint fail-open / fail-closed decided in advance],
+  [In: identity + route · Out: 200, or 429 with `Retry-After`, `RateLimit-Limit`, `-Remaining`, `-Reset`],
+  [Envoy · Redis + Lua (2 counters/key, ~50 B) · local in-process fallback limiter],
+)
 #v(2mm)
 
 #table(

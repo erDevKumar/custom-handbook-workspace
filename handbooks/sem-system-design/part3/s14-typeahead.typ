@@ -56,22 +56,41 @@
 
 #h2("2 · The design", c: green)
 
-#align(center, cetz.canvas(length: 0.8cm, {
+#pfig("Fig S14.1 · typeahead in 30ms — precompute offline, replicate everywhere, one GET on the hot path")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.3, 9.0, 2.2, "OFFLINE — rebuild hourly", purple, rgb("#f5eefa"))
-  rnode(2.2, 1.3, "logs", "query logs", "what users PICKED", purple, w: 3.2, h: 0.85)
-  rnode(6.6, 1.3, "job", "ranking job", "top-10 per prefix", purple, w: 3.2, h: 0.85)
-  line("logs.east", "job.west", mark: (end: ">"), stroke: async)
-  content((4.4, 0.3), dlbl("popularity, not text matching", sz: 6.3pt, c: purple))
-  content((4.4, -0.35), dlbl("CTR-weighted, spam-filtered", sz: 6.3pt, c: purple))
+  pprereq(-0.3, 20.7, 3.0, "4GB index fits in memory per region; ranking is historical, not textual; no cross-region hop on the hot path")
 
-  swimlane(9.8, -1.3, 18.4, 2.2, "ONLINE — one key lookup", green, rgb("#f6fbf7"))
-  rnode(11.8, 1.3, "cli", "client", "debounce 150 ms", blue, w: 2.8, h: 0.85)
-  rnode(15.6, 1.3, "edge", "regional Redis", "GET pfx:\"lond\"", green, w: 3.6, h: 0.85)
-  line("cli.east", "edge.west", mark: (end: ">"), stroke: hot)
-  content((14.2, 0.3), dlbl("no search engine on the hot path", sz: 6.3pt, c: green))
-  content((14.2, -0.35), dlbl("full 4 GB replicated per region", sz: 6.3pt, c: green))
+  ppill(1.9, 0, "key", "keystroke \"lond\"", w: 3.6)
+  pstep(6.56, 0, "cli", "debounce 150ms", "cancel + local cache", st-man, n: 1, actor: "client", w: 4.8)
+  pdec(11.42, 0, "loc", "prefix in\nlocal cache?")
+  pstep(16.27, 0, "edge", "GET pfx:\"lond\"", "regional Redis · 0.5ms", st-auto, n: 2, actor: "edge", w: 4.8)
+  ppill(18.9, -3.8, "ans", "top-10, 13ms spare", w: 4.0)
+
+  pstep(14.04, -3.8, "orig", "cross-region hop", "150ms · never used", st-integ, n: 3, actor: "origin", w: 4.8)
+  pstep(8.78, -3.8, "repl", "4GB replicated", "24 nodes · 4 regions", st-auto, n: 4, actor: "platform", w: 4.8)
+  pstep(3.53, -3.8, "job", "hourly ranking", "CTR-weighted, filtered", st-auto, n: 5, actor: "batch", w: 4.8)
+  ppill(4.0, -7.2, "logs", "query logs — what users PICKED", w: 5.6)
+
+  line("key.east", "cli.west", mark: (end: ">"), stroke: hot)
+  line("cli.east", "loc.west", mark: (end: ">"), stroke: lookup)
+  line("loc.east", "edge.west", mark: (end: ">"), stroke: miss)
+  plabel(13.3, 0, "miss", c: green)
+  line("edge.south", (16.27, -2.0), (18.9, -2.0), "ans.north", mark: (end: ">"), stroke: hot)
+  plabel(17.6, -2.0, "10-15ms RTT, same continent", c: green, dy: 0.34)
+  line("edge.south", (16.27, -2.6), (14.04, -2.6), "orig.north", mark: (end: ">"), stroke: except)
+  plabel(15.1, -2.6, "the hop the design removes", c: red, dy: 0.34)
+  line("repl.east", "orig.west", mark: (end: ">"), stroke: lookup)
+  line("job.east", "repl.west", mark: (end: ">"), stroke: async)
+  line("logs.north", "job.south", mark: (end: ">"), stroke: async)
+
+  ploop("loc.south", "cli.south", -1.8, "hit — answered locally, zero network", c: blue)
 }))
+#pcards(
+  [A 30ms budget that the speed of light already spends 15ms of; an index small enough to replicate whole; personalisation merged client-side, never queried per user],
+  [In: 300,000 QPS of keystrokes, debounced at 150ms · Out: the precomputed top-10 for that prefix from the user's own region, one `GET`, no ranking and no index traversal at query time],
+  [Query-log mining weighted by click-through · hourly materialisation of top-10 per prefix · 4GB replicated to in-memory Redis in 4 regions (24 nodes) · client debounce, cancellation and local cache],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

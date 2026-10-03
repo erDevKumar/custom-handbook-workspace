@@ -16,28 +16,38 @@
 
 #h2("1 · Why a lock alone is not safety", c: red)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M23.1 · the pause no lease survives, and the one check that still rejects the stale write")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -2.4, 18.4, 2.2, "THE PAUSE THAT BREAKS EVERY LOCK", red, rgb("#fdf0ee"))
-  line((1.0, 1.0), (17.4, 1.0), stroke: 1.2pt + ink)
-  // client 1
-  rect((1.6, 1.2), (4.4, 1.8), stroke: 1pt + green, fill: rgb("#d9f0e2"))
-  content((3.0, 1.5), dlbl("C1 holds lock", sz: 6.3pt, c: green))
-  rect((4.6, 1.2), (10.2, 1.8), stroke: 1pt + red, fill: rgb("#fadbd8"))
-  content((7.4, 1.5), dlbl("C1 PAUSED — GC / VM migration / stop-the-world", sz: 6.3pt, c: red))
-  rect((10.4, 1.2), (13.0, 1.8), stroke: 1pt + red)
-  content((11.7, 1.5), dlbl("C1 writes!", sz: 6.3pt, c: red))
+  pprereq(-0.4, 20.6, 2.6, "the lock is for efficiency unless the resource itself validates a token · no network call inside the critical section")
 
-  line((9.0, 1.0), (9.0, 0.2), stroke: (paint: orange, dash: "dashed", thickness: 1pt))
-  content((9.0, -0.15), dlbl("lease expires", sz: 6.3pt, c: orange))
+  ppill(1.9, 0, "c1", "client 1 acquires", w: 3.6)
+  pstep(6.8, 0, "lease", "lease + token 33", "etcd Raft · 5–15ms RTT", st-auto, n: 1, actor: "lock svc", w: 4.4)
+  pstep(12.0, 0, "pause", "stop-the-world pause", "GC / VM migration · unbounded", st-dec, n: 2, actor: "client 1", w: 5.4)
+  pstep(17.6, 0, "exp", "lease expires", "C1 cannot know", st-dec, n: 3, actor: "lock svc", w: 3.8)
 
-  rect((9.2, 0.0), (14.2, 0.6), stroke: 1pt + blue, fill: rgb("#dbe9f7"))
-  content((11.7, 0.3), dlbl("C2 acquires lock, writes", sz: 6.3pt, c: blue))
+  line("c1.east", "lease.west", mark: (end: ">"), stroke: hot)
+  line("lease.east", "pause.west", mark: (end: ">"), stroke: hot)
+  line("pause.east", "exp.west", mark: (end: ">"), stroke: miss)
 
-  content((9.0, -1.0), dlbl("BOTH believe they hold the lock. Both writes succeed.", sz: 7pt, c: red))
-  content((9.0, -1.75), dlbl("No timeout value fixes this — the pause can always exceed the lease.",
-    sz: 6.6pt, c: purple))
+  pstep(4.0, -3.6, "c2", "client 2 acquires", "token 34 · legitimately", st-man, n: 4, actor: "client 2", w: 4.4)
+  pdec(10.2, -3.6, "d", "token ≥ highest seen?", w: 3.0)
+  ppill(16.6, -3.6, "ok", "write applied", w: 3.4, c: green)
+  pstep(10.2, -7.0, "rej", "write rejected at the resource", "storage layer refuses token 33", st-dec, n: 5, w: 6.8)
+
+  line("exp.south", (17.6, -1.9), (4.0, -1.9), "c2.north", mark: (end: ">"), stroke: wrap)
+  plabel(10.8, -1.9, "both clients now believe they hold the lock", c: red)
+  line("c2.east", "d.west", mark: (end: ">"), stroke: hot)
+  line("d.east", "ok.west", mark: (end: ">"), stroke: hot)
+  plabel(13.8, -3.6, "token 34 — yes", c: green)
+  line("d.south", "rej.north", mark: (end: ">"), stroke: except)
+  plabel(14.2, -5.4, "C1 wakes with token 33 — no", c: red, dy: 0)
 }))
+#pcards(
+  [Monotonic token issued with every grant, and a storage layer that actually compares it — the check must live where the damage would occur],
+  [In: two clients, one of them paused past its lease · Out: exactly one applied write; the stale one refused by the resource, not by the lock],
+  [etcd / ZooKeeper (Raft, Zab) for the lease and revision · Redis `SET NX PX` only where duplicated work is the worst case · DB CAS where the data already lives],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

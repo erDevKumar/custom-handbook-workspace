@@ -54,23 +54,41 @@
 
 #h2("2 · The design", c: green)
 
-#align(center, cetz.canvas(length: 0.8cm, {
+#pfig("Fig S13.1 · a billion timers at ms accuracy — bucket for scale, wheel for precision, enqueue to fire")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.6, 18.4, 2.1, "BUCKETED STORAGE → TIMER WHEEL → AT-LEAST-ONCE FIRE", purple,
-    rgb("#f5eefa"))
-  cylinder(2.6, 1.1, "db", "bucketed store", purple, w: 4.0, h: 1.1)
-  content((2.6, 0.2), dlbl("key: minute · sharded", sz: 6.2pt, c: purple))
-  rnode(7.8, 1.1, "ld", "loader", "pre-fetch T-10s", blue, w: 3.4, h: 0.95)
-  rnode(12.4, 1.1, "wh", "timer wheel", "in-memory, ms accurate", green, w: 4.4, h: 0.95)
-  rnode(16.8, 1.1, "q", "execution queue", "at-least-once", orange, w: 3.4, h: 0.95)
-  line("db.east", "ld.west", mark: (end: ">"), stroke: hot); badge(5.7, 1.65, "1", green)
-  line("ld.east", "wh.west", mark: (end: ">"), stroke: hot);  badge(10.3, 1.65, "2", green)
-  line("wh.east", "q.west", mark: (end: ">"), stroke: hot);   badge(14.8, 1.65, "3", green)
-  content((9.0, -0.6), dlbl("the wheel is a CACHE — losing a node loses nothing, the bucket is durable",
-    sz: 6.6pt, c: green))
-  content((9.0, -1.25), dlbl("fire = enqueue, never execute inline. Slow handlers must not delay the clock",
-    sz: 6.5pt, c: red))
+  pprereq(-0.3, 20.7, 3.0, "handlers idempotent on timer id (S4); cancellation is a tombstone checked at fire time; buckets hash-sharded")
+
+  ppill(2.25, 0, "sch", "schedule(t, payload)", w: 4.3)
+  pstep(7.25, 0, "bkt", "bucket by minute", "timers:14:33:shard-7", st-auto, n: 1, actor: "store", w: 4.8)
+  pdec(12.11, 0, "fat", "bucket over\n100k timers?")
+  pstep(16.97, 0, "jit", "jitter on schedule", "spread 09:00 over 2min", st-man, n: 2, actor: "product", w: 4.8)
+
+  pstep(16.6, -3.8, "ld", "pre-fetch T−10s", "one minute, not 50M", st-auto, n: 3, actor: "loader", w: 4.8)
+  pstep(10.8, -3.8, "wh", "in-memory wheel", "ms accurate · a cache", st-auto, n: 4, actor: "firing node", w: 4.8)
+  pstep(5.0, -3.8, "enq", "enqueue, not run", "at-least-once · SQS", st-integ, n: 5, actor: "firing node", w: 4.8)
+  ppill(5.0, -7.2, "hdl", "handler dedupes on timer id", w: 5.6)
+  ppill(16.6, -7.2, "safe", "nothing lost — bucket is durable", w: 5.6)
+
+  line("sch.east", "bkt.west", mark: (end: ">"), stroke: hot)
+  line("bkt.east", "fat.west", mark: (end: ">"), stroke: hot)
+  line("fat.east", "jit.west", mark: (end: ">"), stroke: except)
+  plabel(14.0, 0, "yes", c: red, dy: 0.44)
+  line("fat.south", (12.11, -1.9), (16.6, -1.9), "ld.north", mark: (end: ">"), stroke: hot)
+  plabel(14.1, -1.9, "no — load the due minute", c: green, dy: 0.34)
+  line("ld.west", "wh.east", mark: (end: ">"), stroke: hot)
+  line("wh.west", "enq.east", mark: (end: ">"), stroke: hot)
+  line("enq.south", "hdl.north", mark: (end: ">"), stroke: async)
+  line("wh.south", (10.8, -7.2), "safe.west", mark: (end: ">"), stroke: lookup)
+  plabel(13.0, -7.2, "node dies mid-minute → reload", c: purple, dy: 0.46)
+
+  ploop("jit.south", "bkt.south", -5.6, "re-bucket the jittered times, then re-check the depth", c: blue)
 }))
+#pcards(
+  [Timer ids stable across a re-fire; tombstones, not deletes, for cancellation; buckets sharded by hash; a published drain window where jitter is refused],
+  [In: 50M pending timers, 10,000 fires/s capacity · Out: one minute-bucket read per second regardless of total pending, millisecond firing from the wheel, at-least-once enqueue the handler deduplicates],
+  [Minute-bucketed sharded store (`timers:HH:MM:shard-N`) · pre-fetching loader at T−10s · in-memory hierarchical timer wheel · SQS/Kafka execution queue · idempotent handlers (S4)],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

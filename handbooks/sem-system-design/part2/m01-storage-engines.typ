@@ -39,38 +39,37 @@
 ]
 #v(2mm)
 
-#align(center, cetz.canvas(length: 0.84cm, {
+#pfig("Fig M1.1 · LSM write path — every write is sequential, the cost is deferred to compaction")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
+  pprereq(-0.3, 20.9, 2.6, "durable device with fsync; memtable sized to fit RAM; compaction budget reserved on the same disk")
 
-  swimlane(-0.4, -1.3, 8.6, 5.2, "LSM-TREE — write path", green, rgb("#f6fbf7"))
-  rnode(4.0, 4.4, "w", "write", "append-only", green, w: 2.6, h: 0.8)
-  rnode(1.9, 2.9, "wal", "WAL", "seq · fsync", purple, w: 2.8, h: 1.0)
-  rnode(5.9, 2.9, "mem", "memtable", "skiplist · 64MB", green, w: 3.2, h: 1.0)
-  line("w.south", (4.0, 3.7), (1.9, 3.7), "wal.north", mark: (end: ">"), stroke: hot)
-  line("w.south", (4.0, 3.7), (5.9, 3.7), "mem.north", mark: (end: ">"), stroke: hot)
-  badge(2.6, 3.7, "1", green)
-  badge(5.2, 3.7, "2", green)
-  rnode(5.9, 1.2, "l0", "L0 SSTables", "immutable · sorted", orange, w: 3.6, h: 0.95)
-  line("mem.south", "l0.north", mark: (end: ">"), stroke: 1.1pt + orange)
-  badge(7.3, 2.05, "3", orange)
-  content((5.9, 0.3), dlbl("flush when full", sz: 6.3pt, c: orange))
-  rnode(2.0, 1.2, "lN", "L1..Ln", "compacted tiers", orange, w: 3.2, h: 0.95)
-  line("l0.west", "lN.east", mark: (end: ">"), stroke: async)
-  badge(4.0, 1.2, "4", purple)
-  content((4.0, -0.5), dlbl("compaction merges + drops tombstones", sz: 6.3pt, c: purple))
+  ppill(1.55, 0, "in", "put(k, v)", w: 2.8)
+  pstep(5.5, 0, "wal", "append WAL", "seq fsync · 0.1ms", st-auto, n: 1, actor: "engine", w: 3.8)
+  pstep(10.6, 0, "mem", "memtable", "skiplist 64MB · 0.001ms", st-auto, n: 2, actor: "engine", w: 4.0)
+  pdec(15.3, 0, "full", "memtable\nfull?", w: 1.6)
+  ppill(19.25, 0, "ack", "ack client", w: 3.0)
 
-  swimlane(9.4, -1.3, 18.4, 5.2, "B-TREE — write path", blue, rgb("#f4f8fd"))
-  rnode(13.9, 4.4, "bw", "write", "in-place", blue, w: 2.6, h: 0.8)
-  rnode(13.9, 2.9, "root", "root page", "cached", blue, w: 3.0, h: 0.9)
-  rnode(11.4, 1.3, "i1", "internal", "cached", blue, w: 2.6, h: 0.85)
-  rnode(16.4, 1.3, "i2", "internal", "cached", blue, w: 2.6, h: 0.85)
-  rnode(13.9, -0.4, "leaf", "leaf page", "4-16KB · REWRITTEN", red, w: 4.2, h: 0.9)
-  line("bw.south", "root.north", mark: (end: ">"), stroke: hot)
-  line("root.south", "i1.north", mark: (end: ">"), stroke: hot)
-  line("root.south", "i2.north", mark: (end: ">"), stroke: hot)
-  line("i1.south", "leaf.north", mark: (end: ">"), stroke: miss)
-  content((13.9, -1.0), dlbl("100-byte update = whole page written", sz: 6.3pt, c: red))
+  pstep(15.3, -4.0, "l0", "flush L0 SSTable", "immutable, sorted · 1 file", st-integ, n: 3, actor: "flusher", w: 4.4)
+  pstep(5.5, -4.0, "cmp", "compact L1..Ln", "leveled · 10x write amp", st-integ, n: 4, actor: "compactor", w: 4.4)
+
+  line("in.east", "wal.west", mark: (end: ">"), stroke: hot)
+  line("wal.east", "mem.west", mark: (end: ">"), stroke: hot)
+  line("mem.east", "full.west", mark: (end: ">"), stroke: hot)
+  line("full.east", "ack.west", mark: (end: ">"), stroke: hot)
+  plabel(17.55, 0, "no", c: green, dy: 0.62)
+  line("full.south", "l0.north", mark: (end: ">"), stroke: async)
+  plabel(17.1, -2.1, "yes", c: purple, dy: 0)
+  line("l0.west", "cmp.east", mark: (end: ">"), stroke: async)
+  plabel(10.3, -4.0, "merge, drop tombstones", c: purple, dy: 0.34)
+
+  content((10.3, -6.0), dlbl("compaction is the deferred cost of a sequential write: it reclaims space and lowers read amplification, and it competes for the same disk", sz: 6.5pt, c: purple))
 }))
+#pcards(
+  [WAL on a device whose `fsync` is honoured; RAM for the memtable; spare IOPS for compaction],
+  [In: `put(k,v)` · Out: ack after WAL fsync, not after flush. A read must check memtable + N SSTables],
+  [RocksDB / LevelDB · WAL · skiplist memtable · leveled compaction · Bloom filter per SSTable],
+)
 #v(2mm)
 
 #h2("2 · Trade-off matrix", c: purple)

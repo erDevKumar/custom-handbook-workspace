@@ -22,28 +22,50 @@
 // ---------------------------------------------------------------- 3.1 --------
 #h2("3.1  The ladder, strongest first", c: purple)
 
-#align(center, cetz.canvas(length: 0.86cm, {
+#pfig("Fig 3.1 · the ladder: each rung down trades a guarantee for coordination you stop paying")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  rnode(4.2, 2.6, "lin", "LINEARIZABLE", "Spanner · etcd · single-node RDBMS", red, w: 7.4, h: 1.15)
-  rnode(4.2, 1.1, "seq", "SEQUENTIAL", "ZooKeeper writes · some RSM designs", orange, w: 7.4, h: 1.15)
-  rnode(4.2, -0.4, "cau", "CAUSAL", "COPS · MongoDB causal sessions", blue, w: 7.4, h: 1.15)
-  rnode(4.2, -1.9, "eve", "EVENTUAL", "Dynamo · Cassandra ONE · S3", green, w: 7.4, h: 1.15)
-  line("lin.south", "seq.north", mark: (end: ">"), stroke: 1pt + luma(150))
-  line("seq.south", "cau.north", mark: (end: ">"), stroke: 1pt + luma(150))
-  line("cau.south", "eve.north", mark: (end: ">"), stroke: 1pt + luma(150))
+  pprereq(-0.6, 20.6, 4.9, "the invariants have been enumerated first — which operations must never be wrong, and which may merely be late")
 
-  content((12.6, 2.6), dlbl("real-time order; one global timeline", sz: 7pt, c: red))
-  content((12.5, 1.1), dlbl("one agreed order, NOT real-time", sz: 7pt, c: orange))
-  content((12.8, -0.4), dlbl("cause before effect; concurrent is free", sz: 7pt, c: blue))
-  content((12.2, -1.9), dlbl("converges... eventually", sz: 7pt, c: green))
+  ppill(2.6, 3.2, "need", "a read arrives", c: purple, w: 3.4)
+  pdec(7.2, 3.2, "d1", "real-time order?", w: 2.4)
+  pstep(16.0, 3.2, "lin", "LINEARIZABLE", "Spanner · etcd · single-node RDBMS", st-dec,
+    n: 1, actor: "one global timeline", w: 7.6)
+  line("need.east", "d1.west", mark: (end: ">"), stroke: hot)
+  line("d1.east", "lin.west", mark: (end: ">"), stroke: miss)
+  plabel(10.9, 3.2, "must have it", c: red)
 
-  line((17.4, 3.1), (17.4, -2.5), stroke: (paint: luma(150), dash: "dashed", thickness: 0.8pt))
-  content((18.1, 2.5), dlbl("more", sz: 6.5pt, c: red))
-  content((18.1, 2.0), dlbl("coord", sz: 6.5pt, c: red))
-  content((18.1, -1.5), dlbl("more", sz: 6.5pt, c: green))
-  content((18.1, -2.0), dlbl("speed", sz: 6.5pt, c: green))
-  bracket(0.4, 7.9, -2.9, "pick the WEAKEST model that keeps the product correct", purple)
+  pdec(7.2, 0.9, "d2", "one agreed order?", w: 2.4)
+  pstep(16.0, 0.9, "seq", "SEQUENTIAL", "ZooKeeper writes · RSM designs", st-integ,
+    n: 2, actor: "agreed, not real-time", w: 7.6)
+  line("d1.south", "d2.north", mark: (end: ">"), stroke: 1pt + luma(150))
+  line("d2.east", "seq.west", mark: (end: ">"), stroke: 1.1pt + orange)
+  plabel(10.9, 0.9, "this is enough", c: orange)
+
+  pdec(7.2, -1.4, "d3", "cause → effect?", w: 2.4)
+  pstep(16.0, -1.4, "cau", "CAUSAL", "COPS · Mongo causal sessions", st-start,
+    n: 3, actor: "concurrent is free", w: 7.6)
+  line("d2.south", "d3.north", mark: (end: ">"), stroke: 1pt + luma(150))
+  line("d3.east", "cau.west", mark: (end: ">"), stroke: 1.1pt + blue)
+  plabel(10.9, -1.4, "this is enough", c: blue)
+
+  pstep(16.0, -3.7, "eve", "EVENTUAL", "Dynamo · Cassandra ONE · S3", st-man,
+    n: 4, actor: "converges… when?", w: 7.6)
+  line("d3.south", (7.2, -3.7), "eve.west", mark: (end: ">"), stroke: hot)
+  plabel(9.9, -3.7, "nothing to protect", c: green)
+
+  content((2.8, 2.0), dlbl("more coordination", sz: 6.5pt, c: red))
+  content((2.8, 1.4), dlbl("more latency", sz: 6.5pt, c: red))
+  content((2.8, -2.4), dlbl("more speed", sz: 6.5pt, c: green))
+  content((2.8, -3.0), dlbl("more availability", sz: 6.5pt, c: green))
+  line((5.0, 2.4), (5.0, -3.4), stroke: (paint: luma(150), dash: "dashed", thickness: 0.8pt), mark: (end: ">"))
+  bracket(0.6, 19.8, -4.9, "pick the WEAKEST rung that still keeps the product correct — then write it in the design doc", purple)
 }))
+#pcards(
+  [A named invariant per operation (never oversell, never double-charge) — not one global level for the whole system.],
+  [In: one operation and what it must never get wrong. Out: the model to route it through, and the coordination bill.],
+  [Spanner / etcd for the top rung · ZooKeeper · MongoDB causal sessions · Dynamo, Cassandra, S3 at the bottom.],
+)
 #v(1.5mm)
 
 #text[
@@ -85,29 +107,44 @@
 // ---------------------------------------------------------------- 3.2 --------
 #h2("3.2  Read anomalies these models permit", c: red)
 
-#align(center, cetz.canvas(length: 0.9cm, {
+#pfig("Fig 3.2 · the two anomalies that generate support tickets, and the cheap session-level fix")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  content((2.0, 2.3), dlbl("READ-YOUR-WRITES violated", sz: 8pt, c: red))
-  node(1.6, 1.2, "u1", "user", blue, w: 1.6, h: 0.7)
-  node(5.2, 1.7, "p1", "primary\n[x=1]", green, w: 2.1, h: 0.9)
-  node(5.2, 0.3, "r1", "replica\n[x=0]", red, w: 2.1, h: 0.9)
-  line("u1.east", "p1.west", mark: (end: ">"), stroke: hot)
-  content((3.4, 1.85), dlbl("write x=1", sz: 6.5pt, c: green))
-  line("r1.west", "u1.east", mark: (end: ">"), stroke: miss)
-  content((3.4, 0.15), dlbl("read x -> 0 !", sz: 6.5pt, c: red))
-  line("p1.south", "r1.north", mark: (end: ">"), stroke: async)
-  content((6.6, 1.0), dlbl("lag", sz: 6.5pt, c: purple))
+  swimlane(-0.4, -2.6, 20.4, 2.6, "READ-YOUR-WRITES violated", red, rgb("#fdf0ee"))
+  content((5.6, 2.25), dlbl("— \"my edit did not save\"", sz: 6.8pt, c: red))
+  ppill(2.6, 0, "u1", "user edits profile", w: 4.4)
+  pstep(9.8, 1.3, "pr", "primary", "x = 1 · committed", st-man, n: 1, actor: "the write lands here", w: 4.2, h: 1.1)
+  pstep(9.8, -1.3, "rp", "replica", "x = 0 · still lagging", st-dec, n: 2, actor: "the read is routed here", w: 4.2, h: 1.1)
+  line("u1.east", "pr.west", mark: (end: ">"), stroke: hot)
+  plabel(6.1, 0.72, "write x=1", c: green)
+  line("rp.west", "u1.east", mark: (end: ">"), stroke: miss)
+  plabel(5.9, -0.72, "read x → 0 !", c: red, dy: -0.4)
+  line("pr.south", "rp.north", mark: (end: ">"), stroke: async)
+  plabel(10.5, 0, "lag", c: purple, dy: 0)
+  pstep(17.2, 0, "fix1", "sticky reads", "pin the session for ~5s", st-auto,
+    n: 3, actor: "the cheap fix", w: 5.0)
+  line("rp.east", "fix1.west", mark: (end: ">"), stroke: lookup)
+  plabel(13.4, -0.75, "for one user only", c: green, dy: 0)
 
-  content((12.0, 2.3), dlbl("MONOTONIC READS violated", sz: 8pt, c: red))
-  node(10.6, 1.0, "u2", "user", blue, w: 1.6, h: 0.7)
-  node(14.4, 1.7, "ra", "replica A\n[x=1]", green, w: 2.1, h: 0.9)
-  node(14.4, 0.3, "rb", "replica B\n[x=0]", red, w: 2.1, h: 0.9)
+  swimlane(-0.4, -9.4, 20.4, -4.2, "MONOTONIC READS violated", red, rgb("#fdf0ee"))
+  content((5.8, -4.55), dlbl("— \"the count went 5, 4, 5\"", sz: 6.8pt, c: red))
+  ppill(2.6, -6.8, "u2", "two reads in a row", w: 4.4)
+  pstep(9.8, -5.5, "ra", "replica A", "x = 1 · caught up", st-man, n: 1, actor: "read 1 lands here", w: 4.2, h: 1.1)
+  pstep(9.8, -8.1, "rb", "replica B", "x = 0 · staler", st-dec, n: 2, actor: "read 2 lands here", w: 4.2, h: 1.1)
   line("u2.east", "ra.west", mark: (end: ">"), stroke: hot)
-  content((12.6, 1.75), dlbl("read -> 1", sz: 6.5pt, c: green))
+  plabel(6.1, -6.08, "read → 1", c: green)
   line("u2.east", "rb.west", mark: (end: ">"), stroke: miss)
-  content((12.6, 0.25), dlbl("read -> 0", sz: 6.5pt, c: red))
-  content((14.4, -0.8), dlbl("time went backwards", sz: 7pt, c: red))
+  plabel(6.1, -7.52, "read → 0", c: red, dy: -0.4)
+  pstep(17.2, -6.8, "fix2", "pin the session", "one replica · LB read token", st-auto,
+    n: 3, actor: "the cheap fix", w: 5.0)
+  line("rb.east", "fix2.west", mark: (end: ">"), stroke: lookup)
+  content((11.4, -9.0), dlbl("time went backwards for this one user", sz: 6.6pt, c: red))
 }))
+#pcards(
+  [Asynchronous replication with measurable lag, and a session the load balancer can identify.],
+  [In: a write followed by reads routed anywhere. Out: either a stale answer, or a per-session illusion of strong consistency.],
+  [Primary + async replicas (MySQL, Postgres) · load balancer with session affinity · a write-version token in the session.],
+)
 #v(1.5mm)
 
 #text[

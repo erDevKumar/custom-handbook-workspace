@@ -247,6 +247,74 @@
 ]
 #pagebreak()
 
+// ------------------------------------------ x-b · THE SHAPE OF THE BOOK
+// A book-level map: how the four parts depend on each other, and where each
+// Part 2 module sits on the request path. Placed after 'How to Use' so a
+// reader is oriented before entering Part 1.
+#fmhead("The Shape of the Book")
+
+#text(size: 9.5pt)[
+  The four parts are not four separate books. Part 1 defines the properties every later
+  decision trades against; Part 2 supplies the mechanisms; Part 3 applies them under pressure;
+  Part 4 assembles them into whole systems. This map shows that dependency — and, along the
+  bottom, the request path that every module in Part 2 sits somewhere on.
+]
+#v(3mm)
+
+#align(center, cetz.canvas(length: 0.74cm, {
+  import cetz.draw: *
+
+  // --- the four parts as a dependency chain ---
+  pstep(2.5, 0, "p1", "PART 1", "6 foundations", st-start, n: 1, w: 3.3, h: 1.35)
+  pstep(8.1, 0, "p2", "PART 2", "36 modules", st-auto, n: 2, w: 3.3, h: 1.35)
+  pstep(13.7, 0, "p3", "PART 3", "15 scenarios", st-integ, n: 3, w: 3.3, h: 1.35)
+  pstep(19.3, 0, "p4", "PART 4", "4 case studies", st-man, n: 4, w: 3.3, h: 1.35)
+
+  line("p1.east", "p2.west", mark: (end: ">"), stroke: hot)
+  plabel(5.3, 0, "properties", dy: 0.52)
+  line("p2.east", "p3.west", mark: (end: ">"), stroke: hot)
+  plabel(10.9, 0, "mechanisms", dy: 0.52)
+  line("p3.east", "p4.west", mark: (end: ">"), stroke: hot)
+  plabel(16.4, 0, "applied", dy: 0.52)
+
+  // what each part answers
+  content((2.5, -1.32), dlbl("what must be true", sz: 6.3pt, c: luma(115)))
+  content((8.1, -1.35), dlbl("how to build it", sz: 6.3pt, c: luma(115)))
+  content((13.7, -1.35), dlbl("when it breaks", sz: 6.3pt, c: luma(115)))
+  content((19.3, -1.35), dlbl("all of it at once", sz: 6.3pt, c: luma(115)))
+
+  // the reference rail: Part 4 sends you back into Part 2
+  ploop("p4.south", "p2.south", -2.45, "case studies cite the modules they use")
+
+  // --- the request path every module sits on ---
+  line((-0.1, -3.5), (20.9, -3.5), stroke: (paint: luma(205), thickness: 0.6pt))
+  content((-0.1, -3.95), dlbl("THE REQUEST PATH — every Part 2 module sits on one of these stages", sz: 6.2pt, c: luma(120)), anchor: "west")
+
+  pstep(2.2, -5.6, "c", "client / edge", "M10 M12 M21", st-start, n: 0, w: 3.5, h: 1.1)
+  pstep(6.6, -5.6, "g", "gateway", "M6 M7 M13 M18", st-integ, n: 0, w: 3.5, h: 1.1)
+  pstep(11.0, -5.6, "s", "service", "M4 M20 M23 M25", st-man, n: 0, w: 3.5, h: 1.1)
+  pstep(14.9, -5.6, "d", "data", "M1 M2 M3 M5 M22", st-auto, n: 0, w: 3.5, h: 1.1)
+  pstep(19.4, -5.6, "o", "offline", "M8 M9 M32 M36", st-auto, n: 0, w: 3.1, h: 1.1)
+
+  line("c.east", "g.west", mark: (end: ">"), stroke: hot)
+  line("g.east", "s.west", mark: (end: ">"), stroke: hot)
+  line("s.east", "d.west", mark: (end: ">"), stroke: hot)
+  line("d.east", "o.west", mark: (end: ">"), stroke: async)
+  plabel(17.15, -5.6, "async", c: purple, dy: 0.45)
+
+  // the cross-cutting modules sit under the whole path
+  rect((0.3, -7.95), (20.9, -6.95), stroke: (paint: luma(165), dash: "dashed", thickness: 0.7pt), radius: 0.1, fill: luma(250))
+  content((10.6, -7.45), dlbl("cross-cutting, every stage · M19 observability · M24 config · M26 release · M27 multi-region · M28 tenancy · M30 cost · M31 privacy · M34 zero-trust", sz: 5.7pt, c: luma(100)))
+}))
+#v(2mm)
+
+#pcards(
+  [Part 1 read first — it defines the vocabulary the other three parts assume],
+  [In: a design prompt · Out: a defended architecture with its trade-offs named],
+  [Part 2 modules are the building blocks; Parts 3 and 4 are their application],
+)
+#pagebreak()
+
 // ------------------------------------------- xi · THE VERIFICATION METHODOLOGY
 #fmhead("The Verification Methodology")
 

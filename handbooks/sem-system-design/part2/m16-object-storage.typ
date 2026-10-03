@@ -17,31 +17,45 @@
 
 #h2("1 · Upload and transcode pipeline", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M16.1 · bytes bypass the API entirely; the API only signs, records and orchestrates")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -2.0, 18.4, 2.4, "UPLOAD → PROCESS → SERVE", purple, rgb("#f5eefa"))
-  rnode(2.4, 1.3, "cl", "client", "chunked · resumable", purple, w: 3.4, h: 0.9)
-  rnode(7.2, 1.3, "api", "API", "issues presigned URL", blue, w: 3.6, h: 0.9)
-  line("cl.east", "api.west", mark: (end: ">"), stroke: hot); badge(4.8, 1.85, "1", green)
-  content((7.2, 0.45), dlbl("authz + quota check only", sz: 6.2pt, c: blue))
+  pprereq(-0.4, 20.6, 2.6, "`pending` metadata row written BEFORE the bytes · signature scoped to one key, content-type, max size, minutes-long expiry")
 
-  cylinder(12.6, 1.3, "s3", "S3 / GCS", orange, w: 3.6, h: 1.1)
-  line("cl.north", (2.4, 2.1), (12.6, 2.1), "s3.north", mark: (end: ">"), stroke: hot)
-  badge(7.5, 2.1, "2", green)
-  content((7.5, 2.6), dlbl("bytes go DIRECT — never through the API", sz: 6.4pt, c: green))
+  // row 1 — upload
+  ppill(1.6, 0, "cl", "client picks file", w: 3.0)
+  pstep(6.2, 0, "sign", "authz + quota", "API pod · 8ms, 0 bytes", st-man, n: 1, actor: "api", w: 4.0)
+  pstep(10.6, 0, "put", "direct PUT", "S3 multipart / tus · 90s", st-integ, n: 2, actor: "client", w: 3.8)
+  pstep(15.2, 0, "ev", "ObjectCreated", "S3 event → SQS · 1s", st-auto, n: 3, actor: "bucket", w: 4.0)
+  pstep(19.2, 0, "q", "job queue", "SQS · priority", st-auto, n: 4, actor: "queue", w: 3.0)
 
-  rnode(16.2, 1.3, "ev", "event", "ObjectCreated", green, w: 2.8, h: 0.85)
-  line("s3.east", "ev.west", mark: (end: ">"), stroke: async); badge(15.0, 1.75, "3", purple)
+  line("cl.east", "sign.west", mark: (end: ">"), stroke: hot)
+  line("sign.east", "put.west", mark: (end: ">"), stroke: hot)
+  line("put.east", "ev.west", mark: (end: ">"), stroke: async)
+  line("ev.east", "q.west", mark: (end: ">"), stroke: async)
 
-  rnode(3.6, -1.0, "q", "job queue", "SQS · priority", green, w: 3.4, h: 0.9)
-  line("ev.south", (16.2, -1.0), "q.east", mark: (end: ">"), stroke: async)
-  badge(9.8, -1.0, "4", purple)
-  rnode(8.4, -1.0, "w", "FFmpeg workers", "spot · autoscaled", green, w: 4.0, h: 0.9)
-  line("q.east", "w.west", mark: (end: ">"), stroke: hot)
-  rnode(13.6, -1.0, "cdn", "CDN", "HLS / DASH ladder", blue, w: 4.0, h: 0.9)
-  line("w.east", "cdn.west", mark: (end: ">"), stroke: hot); badge(11.0, -0.55, "5", green)
-  bracket(0.6, 17.4, -2.6, "API touches metadata only — it never sees a byte of media", purple)
+  // row 2 — transcode + serve
+  pstep(4.2, -3.6, "w", "FFmpeg transcode", "spot · 20 CPU-min/upload", st-auto, n: 5, actor: "worker", w: 4.8)
+  pdec(9.4, -3.6, "d", "ladder done?", w: 1.9)
+  pstep(14.4, -3.6, "cdn", "HLS / DASH", "CloudFront · \$85/TB egress", st-integ, n: 6, actor: "cdn", w: 4.4)
+  ppill(19.2, -3.6, "pl", "player", w: 2.6, c: green)
+
+  pstep(9.4, -6.8, "dlq", "dead-letter", "hard timeout, bounded attempts", st-dec, n: 7, w: 4.8)
+
+  line("q.south", (19.2, -1.9), (4.2, -1.9), "w.north", mark: (end: ">"), stroke: wrap)
+  plabel(11.0, -1.9, "one job per rendition — 240p / 480p / 720p / 1080p", c: luma(110))
+  line("w.east", "d.west", mark: (end: ">"), stroke: hot)
+  line("d.east", "cdn.west", mark: (end: ">"), stroke: hot)
+  plabel(11.6, -3.6, "yes", c: green)
+  line("d.south", "dlq.north", mark: (end: ">"), stroke: except)
+  plabel(12.3, -5.3, "no — a poison file hangs the worker", c: red, dy: 0)
+  line("cdn.east", "pl.west", mark: (end: ">"), stroke: hot)
 }))
+#pcards(
+  [Bucket lifecycle rules in place (IA at 30 d, Glacier at 180 d) and a sweeper for `pending` rows older than 24 h],
+  [In: a 500 MB 1080p source · Out: an ABR ladder ≈ 1.6× the source, plus a metadata row the API owns],
+  [S3 / GCS presigned + multipart · tus · SQS · FFmpeg on spot · CloudFront or Fastly],
+)
 #v(2mm)
 
 #text(size: 9pt)[

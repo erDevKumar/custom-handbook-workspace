@@ -49,21 +49,38 @@
 
 #h2("2 · The diagnosis, in order", c: green)
 
-#align(center, cetz.canvas(length: 0.8cm, {
+#pfig("Fig S8.1 · a 2.8s p99 nobody owns — read the waterfall gap before touching a GC flag")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.5, 18.4, 1.9, "DIAGNOSE BEFORE YOU TUNE", orange, rgb("#fdf7f2"))
-  let ph(x, n, l, s, c) = rnode(x, 0.9, n, l, s, c, w: 3.4, h: 1.0)
-  ph(2.3, "a", "1 · trace p99", "tail sampling (M19)", blue)
-  ph(6.3, "b", "2 · find the span", "which hop grew?", green)
-  ph(10.3, "c", "3 · classify", "GC? queue? dep?", purple)
-  ph(14.6, "d", "4 · fix the cause", "not the symptom", green)
-  for (x, y) in (("a","b"),("b","c"),("c","d")) {
-    line(x + ".east", y + ".west", mark: (end: ">"), stroke: hot)
-  }
-  content((9.0, -0.4), dlbl("tail-based sampling keeps 100% of SLOW traces — head sampling loses them",
-    sz: 6.6pt, c: red))
-  content((9.0, -1.1), dlbl("a GC pause shows as a gap BETWEEN spans, not inside one", sz: 6.5pt, c: purple))
+  pprereq(-0.3, 20.7, 3.0, "tail-based sampling deployed first (M19); histograms merged before any quantile is computed — never average per-host p99s")
+
+  ppill(1.8, 0, "sym", "user p99 = 2.8s", c: red, w: 3.4)
+  pstep(6.35, 0, "tbs", "tail sampling", "head at 1% loses them", st-start, n: 1, actor: "collector", w: 4.8)
+  pstep(11.61, 0, "cmp", "slow vs fast", "which span inflated?", st-man, n: 2, actor: "engineer", w: 4.8)
+  pdec(16.46, 0, "sig", "what is the\nsignature?")
+
+  pstep(17.0, -3.8, "gc", "GC pause", "gap, no work · ZGC + heap", st-auto, n: 3, actor: "jvm", w: 4.8)
+  pstep(11.4, -3.8, "pool", "pool queueing", "slow, no work · raise cap", st-auto, n: 4, actor: "runtime", w: 4.8)
+  pstep(5.6, -3.8, "dep", "20 hops deep", "parallelise · BFF (M6)", st-integ, n: 5, actor: "architecture", w: 4.8)
+  ppill(2.55, -7.2, "hedge", "hedged reads · +2% load", w: 4.9)
+
+  line("sym.east", "tbs.west", mark: (end: ">"), stroke: miss)
+  line("tbs.east", "cmp.west", mark: (end: ">"), stroke: hot)
+  line("cmp.east", "sig.west", mark: (end: ">"), stroke: lookup)
+  line("sig.south", (16.46, -2.0), (17.0, -2.0), "gc.north", mark: (end: ">"), stroke: except)
+  plabel(18.4, -2.0, "gap between spans", c: purple, dy: 0.34)
+  line("gc.west", "pool.east", mark: (end: ">"), stroke: except)
+  line("pool.west", "dep.east", mark: (end: ">"), stroke: except)
+  line("dep.south", (5.6, -7.2), "hedge.east", mark: (end: ">"), stroke: hot)
+  plabel(3.9, -5.6, "mitigate meanwhile", c: green, dy: 0.0)
+
+  ploop("hedge.west", "cmp.south", -8.9, "re-measure the merged histogram after every change", c: blue)
 }))
+#pcards(
+  [Traces that actually contain the slow requests; GC logs enabled and timestamp-correlated; the fleet p99 computed from merged histograms, not averaged],
+  [In: 20 services each at a healthy 50ms p99, so 18.2% of requests meet at least one · Out: the cause named per signature — GC pause, pool queueing, or depth — and the matching fix, not a tuned flag],
+  [Tail-based sampling collector (M19) · trace waterfall comparison · JVM GC logs, ZGC/Shenandoah · connection-pool metrics · BFF aggregation (M6) · hedged requests],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

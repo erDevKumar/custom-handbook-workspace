@@ -29,24 +29,38 @@
 
 #h2("2 · Running it", c: green)
 
-#align(center, cetz.canvas(length: 0.8cm, {
+#pfig("Fig S15.1 · the post-mortem as a process — the detection gap is the finding, and the actions are the output")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.5, 18.4, 1.9, "FACTS → CONTRIBUTING FACTORS → SYSTEMIC CHANGE", purple,
-    rgb("#f5eefa"))
-  let ph(x, n, l, s, c) = rnode(x, 0.9, n, l, s, c, w: 3.3, h: 1.0)
-  ph(2.2, "a", "1 · timeline", "facts, no blame", blue)
-  ph(6.0, "b", "2 · detection gap", "4 h unnoticed", red)
-  ph(9.8, "c", "3 · contributing", "plural, always", purple)
-  ph(13.6, "d", "4 · actions", "owners + dates", green)
-  ph(17.2, "e", "5 · verify", "did it land?", orange)
-  for (x, y) in (("a","b"),("b","c"),("c","d"),("d","e")) {
-    line(x + ".east", y + ".west", mark: (end: ">"), stroke: hot)
-  }
-  content((9.0, -0.5), dlbl("the 4-hour DETECTION gap is a bigger finding than the deploy itself",
-    sz: 6.6pt, c: red))
-  content((9.0, -1.15), dlbl("\"human error\" is never a root cause — it is where the analysis stopped",
-    sz: 6.5pt, c: purple))
+  pprereq(-0.3, 20.7, 3.0, "blameless by policy, not by tone; reconstruction kept separate from analysis, so no narrative forms first")
+
+  ppill(2.9, 0, "inc", "4h corruption + 6h recovery", c: red, w: 5.6)
+  pstep(8.55, 0, "tl", "timeline of facts", "who knew what, when", st-man, n: 1, actor: "facilitator", w: 4.8)
+  pstep(13.81, 0, "gap", "the detection gap", "500 recs/min unseen", st-man, n: 2, actor: "facilitator", w: 4.8)
+  pdec(17.0, -3.8, "one", "only one\ncause found?")
+  pstep(11.2, -3.8, "fac", "contributing set", "no CI test, weak canary", st-man, n: 3, actor: "the team", w: 4.8)
+  pstep(5.2, -3.8, "act", "owners + dates", "specific, or decoration", st-auto, n: 4, actor: "eng manager", w: 4.8)
+  pstep(5.2, -7.2, "ver", "verify at 30/90d", "publicly, or they decay", st-man, n: 5, actor: "eng manager", w: 4.8)
+  ppill(17.0, -7.2, "human", "\"human error\" — reopen", c: red, w: 4.7)
+
+  line("inc.east", "tl.west", mark: (end: ">"), stroke: miss)
+  line("tl.east", "gap.west", mark: (end: ">"), stroke: hot)
+  line("gap.south", (13.81, -2.0), (17.0, -2.0), "one.north", mark: (end: ">"), stroke: lookup)
+  plabel(14.8, -2.0, "2,500 records, not 120,000", c: green, dy: 0.34)
+  line("one.south", "human.north", mark: (end: ">"), stroke: except)
+  plabel(16.9, -5.5, "yes — the analysis stopped early", c: red, dy: 0.0)
+  line("one.west", "fac.east", mark: (end: ">"), stroke: hot)
+  plabel(14.6, -2.6, "no — plural", c: green, dy: 0.0)
+  line("fac.west", "act.east", mark: (end: ">"), stroke: hot)
+  line("act.west", (0.9, -3.8), (0.9, -7.2), "ver.west", mark: (end: ">"), stroke: hot)
+
+  ploop("human.west", "fac.south", -8.9, "re-ask: why did the system permit it, and why did nothing catch it", c: blue)
 }))
+#pcards(
+  [A blameless policy the team believes, because early reports are the cheap ones; logs, deploy records and chat transcripts preserved; a priority someone will defend in a planning meeting],
+  [In: 120,000 records corrupted, 8,000 customers contacted, 340 support hours, 0.3% cohort churn · Out: plural contributing factors, dated and owned actions, and a verified completion review at 30 and 90 days],
+  [Deploy and audit logs · chat transcript reconstruction · data-integrity monitoring as the top action · CI schema-compatibility test · canary with business checks (S12) · rehearsed restore runbook],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

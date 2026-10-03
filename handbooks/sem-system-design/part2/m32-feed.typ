@@ -17,23 +17,38 @@
 
 #h2("1 · Fan-out on write vs. on read", c: blue)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M32.1 · one post through the hybrid fan-out, and where the celebrity path forks")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.7, 9.0, 2.2, "FAN-OUT ON WRITE — push", green, rgb("#f6fbf7"))
-  rnode(2.0, 1.2, "w1", "user posts", "1 write", green, w: 2.8, h: 0.8)
-  rnode(6.4, 1.2, "w2", "fan-out worker", "N inserts", orange, w: 3.4, h: 0.8)
-  line("w1.east", "w2.west", mark: (end: ">"), stroke: hot)
-  for (i, y) in ((0, 0.3), (1, -0.2), (2, -0.7)).enumerate() {
-    rect((7.2, y.at(1) - 0.16), (8.4, y.at(1) + 0.16), stroke: 0.8pt + green)
-  }
-  content((4.4, -1.25), dlbl("read = ONE lookup · write = N inserts", sz: 6.4pt, c: green))
+  pprereq(-0.4, 20.6, 2.9, "follower counts materialised and current · timelines hold post ids only, never bodies · sorted sets capped by ZREMRANGEBYRANK")
 
-  swimlane(9.8, -1.7, 18.4, 2.2, "FAN-OUT ON READ — pull", orange, rgb("#fdf7f2"))
-  rnode(11.6, 1.2, "r1", "user opens", "1 read", blue, w: 2.8, h: 0.8)
-  rnode(15.8, 1.2, "r2", "merge at query", "N lookups", red, w: 3.6, h: 0.8)
-  line("r1.east", "r2.west", mark: (end: ">"), stroke: miss)
-  content((14.2, -1.25), dlbl("write = 1 insert · read = N lookups + sort", sz: 6.4pt, c: orange))
+  ppill(2.2, 0, "in", "user posts", w: 3.4)
+  pstep(7.2, 0, "a", "persist the post", "Postgres · 1 insert", st-auto, n: 1, actor: "post svc", w: 4.6)
+  pdec(12.2, 0, "d", "> 100k followers?", w: 2.6)
+  pstep(17.6, 0, "b", "fan-out worker", "~200 ZADDs · 2M/s fleet", st-auto, n: 2, actor: "push path", w: 5.0)
+  pstep(17.6, -3.4, "c", "merge at read", "~21 lookups · all cached", st-man, n: 3, actor: "", w: 5.0)
+  ppill(10.4, -3.4, "out", "ranked timeline page", c: green, w: 5.0)
+  pstep(4.2, -3.4, "x", "no fan-out at all", "1 insert, not 50M", st-dec, n: 4, actor: "", w: 4.8)
+
+  line("in.east", "a.west", mark: (end: ">"), stroke: hot)
+  line("a.east", "d.west", mark: (end: ">"), stroke: hot)
+  line("d.east", "b.west", mark: (end: ">"), stroke: hot)
+  plabel(14.3, 0, "no", c: green, dy: 0.62)
+  line("b.south", "c.north", mark: (end: ">"), stroke: lookup)
+  plabel(18.6, -1.8, "read time", c: green, dy: 0.0)
+  line("c.west", "out.east", mark: (end: ">"), stroke: hot)
+  plabel(14.2, -3.4, "cursor", c: purple)
+  line("d.south", (12.2, -1.9), (4.2, -1.9), "x.north", mark: (end: ">"), stroke: except)
+  plabel(8.4, -1.9, "yes — celebrity", c: red, dy: -0.45)
+  line("x.east", "out.west", mark: (end: ">"), stroke: miss)
+  plabel(7.3, -3.4, "merged in", c: red, dy: -0.5)
+  content((4.6, -5.4), dlbl("pure push: one 50M-follower post = 8 minutes of fan-out,\nand every other user's posts queue behind it", sz: 6.5pt, c: red))
 }))
+#pcards(
+  [Follower counts current enough to classify an account on every post. Timelines store post ids only — a deleted post must vanish from 200,000 copies at once.],
+  [In: one post plus the author's follower count. Out: ZADDs into ordinary followers' lists, or nothing at all for a celebrity, merged back in at read.],
+  [Postgres for posts · Redis sorted sets, 100M × 800 entries ≈ 1.28 TB · Kafka-driven fan-out workers · opaque base64 cursors, never OFFSET],
+)
 #v(1.5mm)
 
 #table(

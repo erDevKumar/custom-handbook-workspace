@@ -18,28 +18,35 @@
 
 #h2("1 · Shutdown is a race you must win", c: red)
 
-#align(center, cetz.canvas(length: 0.82cm, {
+#pfig("Fig M29.1 · pod termination — two clocks running at once, and the probe that gates traffic")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -2.0, 18.4, 2.0, "POD TERMINATION — two things happen CONCURRENTLY", red,
-    rgb("#fdf0ee"))
-  line((1.0, 1.0), (17.4, 1.0), stroke: 1.2pt + ink)
-  content((1.0, 1.5), dlbl("t=0 delete", sz: 6.3pt, c: red))
+  pprereq(-0.4, 20.6, 2.9, "app traps SIGTERM as PID 1 · terminationGracePeriodSeconds ≥ 45 s · PodDisruptionBudget minAvailable 18 of 20")
 
-  rect((1.2, 1.2), (7.0, 1.75), stroke: 1pt + orange, fill: rgb("#fdebd9"))
-  content((4.1, 1.47), dlbl("endpoint removal propagates to every kube-proxy", sz: 6.2pt, c: orange))
-  rect((1.2, 0.25), (5.0, 0.8), stroke: 1pt + red, fill: rgb("#fadbd8"))
-  content((3.1, 0.52), dlbl("SIGTERM sent immediately", sz: 6.2pt, c: red))
+  ppill(2.0, 0, "in", "pod deleted", w: 3.4)
+  pstep(7.0, 0, "a", "SIGTERM, immediate", "kubelet · t = 0 s", st-dec, n: 1, actor: "kubelet", w: 5.2)
+  pstep(13.4, 0, "b", "preStop sleep 15 s", "keeps serving · bridges gap", st-man, n: 2, actor: "container", w: 5.4)
+  pdec(18.4, -3.4, "d", "probe ready?", w: 2.0)
+  pstep(11.0, -3.4, "c", "drain in-flight, exit 0", "close pools · ≤ 30 s", st-man, n: 3, actor: "container", w: 5.8)
+  ppill(3.2, -3.4, "out", "pod gone, no 502s", c: green, w: 4.4)
+  pstep(11.0, -6.8, "x", "SIGKILL mid-request", "grace period expired", st-dec, n: 4, actor: "", w: 5.2)
 
-  content((9.0, 0.0), dlbl("GAP: pod is already SIGTERM'd but STILL RECEIVING traffic", sz: 7pt, c: red))
-  content((9.0, -0.65), dlbl("-> connection refused errors during every normal deploy", sz: 6.5pt, c: red))
-
-  rect((7.2, 0.25), (13.0, 0.8), stroke: 1pt + green, fill: rgb("#d9f0e2"))
-  content((10.1, 0.52), dlbl("preStop sleep 15s — bridges the gap", sz: 6.2pt, c: green))
-  rect((13.2, 0.25), (16.8, 0.8), stroke: 1pt + green)
-  content((15.0, 0.52), dlbl("drain in-flight, exit 0", sz: 6.2pt, c: green))
-  content((9.0, -1.45), dlbl("terminationGracePeriodSeconds must exceed preStop + drain time",
-    sz: 6.5pt, c: purple))
+  line("in.east", "a.west", mark: (end: ">"), stroke: hot)
+  line("a.east", "b.west", mark: (end: ">"), stroke: hot)
+  line("b.east", (20.4, 0), (20.4, -3.4), "d.east", mark: (end: ">"), stroke: lookup)
+  content((17.6, -1.5), dlbl("endpoint removal\npropagates to every\nkube-proxy", sz: 6.3pt, c: orange))
+  line("d.west", "c.east", mark: (end: ">"), stroke: hot)
+  plabel(15.1, -3.4, "no — unrouted", c: green)
+  line("c.west", "out.east", mark: (end: ">"), stroke: hot)
+  line("c.south", "x.north", mark: (end: ">"), stroke: except)
+  plabel(12.9, -5.2, "grace < preStop + drain", c: red, dy: 0.0)
+  content((3.9, -6.8), dlbl("without the preStop sleep the pod is\nSIGTERM'd while kube-proxy still routes\nto it — a burst of 502s every deploy", sz: 6.5pt, c: red))
 }))
+#pcards(
+  [Liveness never touches a dependency — a 20 s DB failover would restart the whole fleet. Readiness reflects real capacity: pool availability, queue depth, warm cache.],
+  [In: a delete event from a deploy, autoscale or node drain. Out: a pod removed from endpoints before it stops serving — or a SIGKILL that drops in-flight requests.],
+  [kubelet + kube-proxy · `preStop` exec sleep · `startupProbe` for slow JVM boots · PodDisruptionBudget · rolling update with `maxSurge: 25%` = ~2 min],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

@@ -21,22 +21,33 @@
 // ---------------------------------------------------------------- 5.1 --------
 #h2("5.1  SLI, SLO, SLA — three words people use wrongly", c: blue)
 
-#align(center, cetz.canvas(length: 0.9cm, {
+#pfig("Fig 5.1 · from a measurement to a contract — and why the internal target sits inside the external promise")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  node(2.6, 0.5, "sli", "SLI", blue, w: 2.6, h: 1.0)
-  node(8.0, 0.5, "slo", "SLO", green, w: 2.6, h: 1.0)
-  node(13.6, 0.5, "sla", "SLA", red, w: 2.6, h: 1.0)
+  pprereq(-0.6, 20.6, 2.9, "the SLI is measured where the USER is — a load balancer's 200 OK in 50ms says nothing about a stalled mobile client")
+
+  ppill(2.0, 0, "user", "real user traffic", w: 3.8)
+  pstep(7.2, 0, "sli", "SLI", "\"99.4% of reads < 300ms\"", st-start,
+    n: 1, actor: "the measurement", w: 4.0)
+  pstep(13.2, 0, "slo", "SLO", "\"99.9% must be < 300ms\"", st-man,
+    n: 2, actor: "internal target", w: 4.0)
+  pstep(19.2, 0, "sla", "SLA", "\"99.5% or you get credits\"", st-dec,
+    n: 3, actor: "contract + penalty", w: 4.0)
+  line("user.east", "sli.west", mark: (end: ">"), stroke: hot)
   line("sli.east", "slo.west", mark: (end: ">"), stroke: hot)
+  plabel(10.2, 0, "target it", c: green)
   line("slo.east", "sla.west", mark: (end: ">"), stroke: miss)
-  content((2.6, -0.65), dlbl("the measurement", sz: 7.5pt, c: blue))
-  content((2.6, -1.25), dlbl("\"99.4% of reads < 300ms\"", sz: 7pt, c: luma(110)))
-  content((8.0, -0.65), dlbl("the internal target", sz: 7.5pt, c: green))
-  content((8.0, -1.25), dlbl("\"99.9% must be < 300ms\"", sz: 7pt, c: luma(110)))
-  content((13.6, -0.65), dlbl("the contract + penalty", sz: 7.5pt, c: red))
-  content((13.6, -1.25), dlbl("\"99.5% or you get credits\"", sz: 7pt, c: luma(110)))
-  content((5.3, 1.3), dlbl("set a target", sz: 6.5pt, c: green))
-  content((10.8, 1.3), dlbl("promise externally", sz: 6.5pt, c: red))
+  plabel(16.2, 0, "promise it", c: red)
+
+  ploop("sli.south", "user.south", -1.5, "measured continuously from the client side, not the server side", c: blue)
+
+  bracket(11.2, 20.6, -2.8, "the SLO is STRICTER than the SLA — that gap is your margin for being human", purple)
 }))
+#pcards(
+  [Client-side instrumentation, an agreed measurement window, and a target chosen before the contract is signed.],
+  [In: every real user request. Out: a number (SLI), a target to hold (SLO), and a promise with money attached (SLA).],
+  [RUM / client SDK · metrics backend with quantiles · the SLO document · the customer contract.],
+)
 #v(1.5mm)
 
 #text[
@@ -125,27 +136,40 @@
 // ---------------------------------------------------------------- 5.4 --------
 #h2("5.4  Burn-rate alerting — pages that mean something", c: red)
 
-#align(center, cetz.canvas(length: 0.9cm, {
+#pfig("Fig 5.2 · burn rate — the same budget, spent at three speeds, routed to three different responses")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  line((0.5, 0), (16.5, 0), stroke: 1.2pt + ink)
-  line((0.5, 0), (0.5, 3.4), stroke: 1.2pt + ink)
-  content((-0.4, 1.7), dlbl("budget", sz: 7pt, c: ink))
-  content((8.5, -0.6), dlbl("30-day window ->", sz: 7pt, c: ink))
+  pprereq(-0.6, 20.6, 4.9, "an SLO exists, the window is fixed (30 days), and the budget was agreed in advance while everyone was calm")
 
-  // ideal burn
-  line((0.5, 3.2), (16.2, 0.2), stroke: (paint: green, thickness: 1.3pt, dash: "dashed"))
-  content((13.4, 1.25), dlbl("ideal burn (1x)", sz: 7pt, c: green))
+  ppill(2.1, 0, "b", "error budget", c: purple, w: 3.8)
+  pstep(7.2, 0, "m", "measure burn", "errors ÷ budget, per window", st-auto,
+    n: 1, actor: "alerting rule", w: 4.4)
+  pdec(11.6, 0, "d", "how fast?", w: 1.9)
 
-  // 14.4x burn
-  line((0.5, 3.2), (2.4, 0.1), stroke: 1.6pt + red)
-  content((3.5, 2.5), dlbl("14.4x burn", sz: 7.5pt, c: red))
-  content((3.9, 1.95), dlbl("budget gone in 2 days", sz: 7pt, c: red))
-  content((3.5, 1.4), dlbl("-> PAGE someone", sz: 7pt, c: red))
+  pstep(17.8, 2.6, "page", "PAGE someone", "budget gone in ~2 days", st-dec,
+    n: 2, actor: "14.4x · 1h + 5m windows", w: 5.2)
+  pstep(17.8, 0, "tick", "raise a ticket", "10% burnt in a day", st-integ,
+    n: 3, actor: "3x · 1d + 2h windows", w: 5.2)
+  pstep(17.8, -2.6, "ok", "on pace — ship", "unused budget is wasted velocity", st-man,
+    n: 4, actor: "1x · 3d + 6h windows", w: 5.2)
 
-  // 3x burn
-  line((0.5, 3.2), (7.0, 0.15), stroke: 1.5pt + orange)
-  content((8.4, 2.2), dlbl("3x burn -> ticket, not a page", sz: 7.5pt, c: orange))
+  line("b.east", "m.west", mark: (end: ">"), stroke: hot)
+  line("m.east", "d.west", mark: (end: ">"), stroke: hot)
+  line("d.east", "page.west", mark: (end: ">"), stroke: miss)
+  plabel(14.4, 1.6, "14.4x", c: red, dy: 0)
+  line("d.east", "tick.west", mark: (end: ">"), stroke: 1.1pt + orange)
+  plabel(14.4, 0, "3x", c: orange)
+  line("d.east", "ok.west", mark: (end: ">"), stroke: hot)
+  plabel(14.4, -1.6, "1x", c: green, dy: 0)
+
+  ploop("ok.south", "m.south", -4.0, "re-evaluate on BOTH windows — the long one proves it is real, the short one proves it is STILL happening", c: blue)
+  content((6.0, -5.2), dlbl("budget exhausted → feature freeze, reliability work only, until it refills", sz: 7pt, c: red))
 }))
+#pcards(
+  [An SLO with a fixed window, and a prior agreement on what an exhausted budget means for the roadmap.],
+  [In: the error rate over a long and a short window. Out: one of three actions — page, ticket, or permission to ship.],
+  [Prometheus / Grafana multi-window burn-rate rules · the pager rotation · the feature-freeze policy.],
+)
 #v(1.5mm)
 
 #text[

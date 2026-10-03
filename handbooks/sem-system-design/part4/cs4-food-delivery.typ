@@ -78,6 +78,7 @@
 
 #h2("3 · Complete system topology", c: blue)
 
+#pfig("Fig CS4.1 · complete topology — three clients, three edges, one order path through them")
 #align(center, cetz.canvas(length: 0.62cm, {
   import cetz.draw: *
 
@@ -148,9 +149,37 @@
   edge("kfk.east", "ch.west", "", purple, kind: "dash")
   edge("pgc.south", "kfk.north", "", purple, kind: "dot")
 
+  // ---- the order path numbered on the boxes that perform it, so the dense
+  // topology still reads in order. Badges hang off each box's top-left corner;
+  // arrow-mounted badges are impossible here because the edges run diagonally.
+  badge(1.1, 8.6, "1", green)
+  plabel(1.1, 8.6, "cart", c: green, dy: -0.78)
+  badge(6.5, 5.8, "2", green)
+  plabel(6.5, 5.8, "authn", c: green, dy: -0.78)
+  badge(10.6, 3.1, "3", green)
+  plabel(10.6, 3.1, "re-price", c: green, dy: -0.78)
+  badge(16.0, 3.1, "4", red)
+  plabel(16.0, 3.1, "persist", c: red, dy: -0.78)
+  badge(20.8, 3.1, "5", red)
+  plabel(20.8, 3.1, "authorise", c: red, dy: -0.78)
+  badge(0.7, 1.3, "6", orange)
+  plabel(0.7, 1.3, "dispatch", c: orange, dy: -0.78)
+  badge(10.8, 1.3, "7", orange)
+  plabel(10.8, 1.3, "track", c: orange, dy: -0.78)
+  badge(0.8, -1.4, "8", orange)
+  plabel(0.8, -1.4, "settle", c: orange, dy: -0.8)
+
   bracket(0.2, 24.8, -4.8,
     "checkout budget 1,000 ms  ·  dispatch decision 3,000 ms  ·  tracking push 250 ms", purple)
 }))
+#pcards(
+  [Three separate client paths, two separate databases (catalogue read-mostly, orders write-heavy),
+   and `city_id` as the shard key throughout.],
+  [In: 100 orders/s at dinner peak, 2,500 discovery QPS, 18,000 rider position writes/s. Out:
+   62,500 tracking pushes/s — the largest sustained load in the system.],
+  [CDN · Envoy gateway · 15-node WS fleet · per-client BFF · 10 core services · Postgres ×3 ·
+   Redis · Elasticsearch · Kafka · ClickHouse · S3],
+)
 #v(2mm)
 
 #text(size: 8.7pt)[
@@ -167,55 +196,94 @@
 ]
 #v(2mm)
 
-#h2("4 · The order lifecycle, as a flow", c: green)
+#h2("4 · The order lifecycle — the critical path", c: green)
 
-#align(center, cetz.canvas(length: 0.62cm, {
+#text(size: 8.7pt)[
+  #text(fill: green, weight: "bold")[This is the path the whole business runs on]: the tap on PAY
+  to the money settling, through three parties who are all live at once. Everything else in the
+  design — discovery, search, tracking — exists to feed it or to report on it.
+]
+#v(1.5mm)
+
+#pfig("Fig CS4.2 · the order critical path — PAY to settlement, across customer, restaurant and rider")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  terminal(2.4, 7.2, "t0", "customer taps PAY", green, w: 5.0, h: 0.9)
-  io(8.6, 7.2, "in", "cart + address + payment token", blue, w: 7.0, h: 0.9)
-  rnode(16.4, 7.2, "val", "validate cart", "re-price server-side", green, w: 4.6, h: 0.9)
-  edge("t0.east", "in.west", "", green)
-  edge("in.east", "val.west", "", green)
+  pprereq(-0.2, 20.2, 2.5,
+    "cart built from cached menu data · restaurant shown open · payment instrument on file · rider supply in the city")
 
-  decision(3.0, 4.8, "d1", "menu still\nvalid?", orange, w: 3.6, h: 1.7)
-  edge("val.south", "d1.north", "", green)
-  rnode(8.4, 4.8, "auth", "authorise payment", "hold, not capture", red, w: 4.8, h: 0.9)
-  terminal(3.0, 2.4, "x1", "reject: item unavailable", red, w: 5.6, h: 0.85)
-  edge("d1.south", "x1.north", "", red)
-  edge("d1.east", "auth.west", "", green)
-  content((5.6, 5.2), dlbl("yes", sz: 6pt, c: green))
-  content((1.5, 3.6), dlbl("no", sz: 6pt, c: red))
+  // ---- row 1: the money is held before the kitchen ever hears about the order
+  ppill(2.2, 0, "in", "customer taps PAY", c: purple, w: 4.4)
+  pstep(8.4, 0, "a", "re-price the cart", "authoritative catalogue", st-auto, n: 1,
+    actor: "cart & pricing", w: 5.0)
+  pdec(13.4, 0, "d1", "menu still\nvalid?", w: 2.0)
+  pstep(18.6, 0, "b", "authorise payment", "a hold, not a capture", st-integ, n: 2,
+    actor: "payments", w: 4.8)
 
-  rnode(14.6, 4.8, "place", "persist order", "+ outbox event (M9)", green, w: 5.0, h: 0.9)
-  edge("auth.east", "place.west", "", green)
-  queue(21.0, 4.8, "q1", "order.placed", purple, w: 4.4, h: 0.85)
-  edge("place.east", "q1.west", "", purple)
+  line("in.east", "a.west", mark: (end: ">"), stroke: hot)
+  line("a.east", "d1.west", mark: (end: ">"), stroke: lookup)
+  line("d1.east", "b.west", mark: (end: ">"), stroke: hot)
+  plabel(15.6, 0, "yes", c: green, dy: 0.34)
 
-  rnode(3.4, 0.6, "rpush", "notify restaurant", "push + tablet chime", purple, w: 5.0, h: 0.9)
-  route(("q1.south", (21.0, 2.0), (3.4, 2.0), "rpush.north"), purple, kind: "dash")
-  decision(10.2, 0.6, "d2", "accepted\nin 90 s?", orange, w: 3.8, h: 1.7)
-  edge("rpush.east", "d2.west", "", green)
-  terminal(10.2, -1.9, "x2", "auto-cancel + full refund", red, w: 6.0, h: 0.85)
-  edge("d2.south", "x2.north", "", red)
-  content((8.0, -0.9), dlbl("no", sz: 6pt, c: red))
+  // ---- wrap to row 2
+  line("b.south", (18.6, -2.1), (2.6, -2.1), (2.6, -3.1), mark: (end: ">"), stroke: wrap)
+  plabel(10.6, -2.1,
+    "a customer with a failing card never reaches the kitchen", c: luma(110), dy: 0.28)
 
-  rnode(16.6, 0.6, "disp", "dispatch rider", "score by ETA + batching", orange, w: 5.4, h: 0.9)
-  edge("d2.east", "disp.west", "", green)
-  content((13.6, 1.0), dlbl("yes", sz: 6pt, c: green))
-  rnode(22.6, 0.6, "cook", "prep + pickup", "status pushed live", green, w: 4.4, h: 0.9)
-  edge("disp.east", "cook.west", "", green)
+  // ---- row 2: the restaurant, and the 90-second gate the marketplace hangs on
+  pstep(2.6, -4.4, "c", "persist order", "+ outbox event (M9)", st-auto, n: 3,
+    actor: "order svc", w: 4.6)
+  pstep(8.2, -4.4, "e", "notify restaurant", "push + tablet chime · < 5 s", st-integ, n: 4,
+    actor: "merchant tablet", w: 5.4)
+  pdec(13.6, -4.4, "d2", "accepted\nin 90 s?", w: 2.0)
+  pstep(18.8, -4.4, "f", "dispatch a rider", "ETA · load · batching", st-auto, n: 5,
+    actor: "dispatch", w: 4.6)
 
-  rnode(4.0, -3.6, "deliv", "deliver + PoD", "OTP or photo", green, w: 4.8, h: 0.9)
-  route(("cook.south", (22.6, -2.4), (4.0, -2.4), "deliv.north"), green)
-  rnode(10.8, -3.6, "cap", "capture payment", "idempotency key", red, w: 4.8, h: 0.9)
-  edge("deliv.east", "cap.west", "", red)
-  rnode(16.8, -3.6, "settle", "ledger postings", "double-entry (CS3)", red, w: 5.0, h: 0.9)
-  edge("cap.east", "settle.west", "", red)
-  terminal(22.4, -3.6, "end", "DONE", green, w: 3.2, h: 0.85)
-  edge("settle.east", "end.west", "", green)
+  line("c.east", "e.west", mark: (end: ">"), stroke: hot)
+  line("e.east", "d2.west", mark: (end: ">"), stroke: hot)
+  line("d2.east", "f.west", mark: (end: ">"), stroke: hot)
+  plabel(15.8, -4.4, "yes", c: green, dy: 0.34)
 
-  bracket(0.2, 24.8, -4.6, "payment is AUTHORISED at placement, CAPTURED at delivery — never before", purple)
+  // ---- the offer rail: a rider who does not accept in 20 s loses it
+  ploop("f.south", "e.south", -6.3, "rider declines or times out at 20 s → next candidate, order unaffected")
+
+  // ---- wrap to row 3
+  line("f.east", (21.4, -4.4), (21.4, -7.7), (3.4, -7.7), (3.4, -8.7),
+    mark: (end: ">"), stroke: wrap)
+  plabel(11.0, -7.7, "the order is now physical: forty minutes of the real world", c: luma(110), dy: 0.28)
+
+  // ---- row 3: the money is only taken once the food has arrived
+  pstep(3.4, -10.0, "g", "prep → pickup → deliver", "PoD: OTP or photo", st-man, n: 6,
+    actor: "rider", w: 6.0)
+  pstep(11.4, -10.0, "h", "capture payment", "idempotency key (S4)", st-integ, n: 7,
+    actor: "payments", w: 5.0)
+  pstep(17.6, -10.0, "i", "ledger postings", "double-entry (CS3)", st-auto, n: 8,
+    actor: "money", w: 4.8)
+
+  line("g.east", "h.west", mark: (end: ">"), stroke: hot)
+  plabel(9.2, -10.0, "delivered", c: green, dy: -0.76)
+  line("h.east", "i.west", mark: (end: ">"), stroke: hot)
+
+  // ---- exception: the two places the order dies, and they are voids not refunds
+  pstep(7.4, -13.0, "x", "cancel + VOID the hold", "instant and free — not a refund", st-dec, n: 0,
+    actor: "order svc", w: 7.0)
+  ppill(16.4, -13.0, "out", "settled", c: green, w: 3.0)
+  line("i.south", (17.6, -11.9), (16.4, -11.9), "out.north", mark: (end: ">"), stroke: hot)
+  line("d1.south", (13.4, -1.4), (21.2, -1.4), (21.2, -14.6), (7.4, -14.6), "x.south",
+    mark: (end: ">"), stroke: except)
+  line("d2.south", (13.6, -11.4), (7.4, -11.4), "x.north", mark: (end: ">"), stroke: except)
+  plabel(10.4, -11.4, "no — restaurant never responded", c: red, dy: 0.28)
+  plabel(17.2, -1.4, "no — item sold out", c: red, dy: -0.34)
+  plabel(14.4, -14.6, "no charge, no kitchen, no rider moved", c: red, dy: 0.3)
 }))
+#pcards(
+  [The cart is a proposal, never a price; the restaurant is shown as open only if its availability
+   score says so; riders are online in the city.],
+  [In: a cart, an address and a payment token. Out: an authorisation at placement, a capture only
+   on proof of delivery, and four double-entry ledger postings (customer, restaurant, rider,
+   platform).],
+  [Cart & pricing · order state machine · merchant tablet push · dispatch + geo/ETA · payments ·
+   ledger · Kafka outbox],
+)
 #v(2mm)
 
 #key[
@@ -340,7 +408,85 @@
   authorisation (not a refund), notify the customer with alternatives, and
   #underline(stroke: 1pt + green)[down-rank the restaurant's availability score] so it stops being
   shown as open.
+]
+#v(1.5mm)
 
+#pfig("Fig CS4.3 · failure response — the restaurant never sees the order")
+#align(center, cetz.canvas(length: 0.76cm, {
+  import cetz.draw: *
+  pprereq(-0.2, 20.2, 2.5,
+    "payment AUTHORISED, never captured · no rider dispatched yet · restaurant carries an availability score")
+
+  // ---- detection: a timer, not an alert
+  ppill(2.4, 0, "in", "order sent to tablet", c: purple, w: 4.8)
+  pstep(9.0, 0, "a", "90-second timer", "silence is the signal", st-dec, n: 1,
+    actor: "order svc", w: 4.6)
+  pdec(13.8, 0, "d", "accepted\nin 90 s?", w: 2.0)
+  pstep(19.0, 0, "b", "auto-cancel", "no human in the loop", st-auto, n: 2,
+    actor: "order svc", w: 4.4)
+
+  line("in.east", "a.west", mark: (end: ">"), stroke: hot)
+  line("a.east", "d.west", mark: (end: ">"), stroke: except)
+  plabel(11.6, 0, "no chime, no accept, no reject", c: red, dy: -0.76)
+  line("d.east", "b.west", mark: (end: ">"), stroke: except)
+  plabel(16.3, 0, "no", c: red, dy: 0.34)
+
+  // ---- wrap to mitigation
+  line("b.south", (19.0, -2.1), (2.6, -2.1), (2.6, -3.1), mark: (end: ">"), stroke: wrap)
+  plabel(10.6, -2.1,
+    "nothing was captured and no rider moved, so the whole order unwinds for free",
+    c: luma(110), dy: 0.28)
+
+  pstep(2.6, -4.4, "c", "VOID the hold", "instant · not a refund", st-integ, n: 3,
+    actor: "payments", w: 4.6)
+  pstep(8.4, -4.4, "e", "tell the customer", "+ 3 open alternatives", st-man, n: 4,
+    actor: "customer app", w: 5.0)
+  pstep(14.4, -4.4, "f", "down-rank the store", "availability score ↓", st-auto, n: 5,
+    actor: "discovery", w: 5.0)
+  pstep(19.6, -4.4, "g", "stop showing it", "reindex in ES", st-auto, n: 6,
+    actor: "discovery", w: 4.0)
+
+  line("c.east", "e.west", mark: (end: ">"), stroke: hot)
+  line("e.east", "f.west", mark: (end: ">"), stroke: hot)
+  plabel(11.9, -4.4, "the real fix", c: green, dy: -0.78)
+  line("f.east", "g.west", mark: (end: ">"), stroke: hot)
+
+  // ---- wrap to recovery
+  line("g.south", (19.6, -6.4), (3.4, -6.4), (3.4, -7.4), mark: (end: ">"), stroke: wrap)
+  plabel(10.6, -6.4,
+    "one void costs nothing; a store that keeps doing it costs the marketplace",
+    c: luma(110), dy: 0.28)
+
+  pstep(3.4, -8.7, "h", "merchant alerted", "ops console + SMS", st-man, n: 7,
+    actor: "merchant team", w: 5.0)
+  pstep(10.0, -8.7, "i", "tablet heartbeats", "score recovers on its own", st-auto, n: 8,
+    actor: "merchant tablet", w: 5.8)
+  ppill(17.4, -8.7, "out", "shown as open again", c: green, w: 5.4)
+
+  line("h.east", "i.west", mark: (end: ">"), stroke: hot)
+  line("i.east", "out.west", mark: (end: ">"), stroke: hot)
+
+  // ---- the branch the design refuses
+  pstep(16.8, -11.6, "x", "leave it listed", "repeat cancellations — never", st-dec, n: 0,
+    actor: "rejected", w: 5.6)
+  line("d.south", (13.8, -5.9), (0.3, -5.9), (0.3, -13.0), (16.8, -13.0), "x.south",
+    mark: (end: ">"), stroke: except)
+  plabel(8.6, -13.0, "the branch we refuse: an order the restaurant never sees is an order that never happens",
+    c: red, dy: 0.28)
+
+  ploop("out.south", "h.south", -10.1, "recovered by the store itself — no engineer is paged for this")
+}))
+#pcards(
+  [Payment authorised but never captured, no rider dispatched, and the restaurant carries an
+   availability score that discovery already reads.],
+  [In: 90 seconds of silence from a tablet. Out: a void (not a refund), a customer holding three
+   alternatives, and a store removed from discovery until its tablet speaks again.],
+  [Order state machine · payment void · customer push (M11) · availability score · Elasticsearch
+   reindex (M17) · ops console],
+)
+#v(2mm)
+
+#text(size: 8.7pt)[
   #text(fill: red, weight: "bold")[Menu/price drift.] The catalogue cache serves a price the
   restaurant changed an hour ago. The customer is charged the old price and someone absorbs the
   difference. #text(fill: green)[Fix:] re-price #text(weight: "bold")[server-side at checkout]

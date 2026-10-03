@@ -53,25 +53,39 @@
 
 #h2("2 · The solution — six phases, each reversible", c: green)
 
-#align(center, cetz.canvas(length: 0.8cm, {
+#pfig("Fig S3.1 · six-phase migration — the gate is the shadow-read mismatch rate, and every phase flips back by config")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.5, 18.4, 1.8, "EVERY PHASE ROLLS BACK BY CONFIG, NOT BY RESTORE", green,
-    rgb("#f6fbf7"))
-  let ph(x, n, lbl, sub, c) = {
-    rnode(x, 0.8, n, lbl, sub, c, w: 2.9, h: 1.0)
-  }
-  ph(2.0, "p1", "1 · dual-write", "both, async target", green)
-  ph(5.2, "p2", "2 · backfill", "throttled, 4.6 d", orange)
-  ph(8.4, "p3", "3 · CDC catch-up", "tail the binlog", orange)
-  ph(11.6, "p4", "4 · verify", "checksums + shadow", purple)
-  ph(14.8, "p5", "5 · read cutover", "1% → 100%", green)
-  ph(17.6, "p6", "6 · retire", "stop dual-write", red)
-  for (a, b) in (("p1", "p2"), ("p2", "p3"), ("p3", "p4"), ("p4", "p5"), ("p5", "p6")) {
-    line(a + ".east", b + ".west", mark: (end: ">"), stroke: hot)
-  }
-  content((9.0, -0.6), dlbl("MySQL remains the source of truth until phase 6", sz: 6.6pt, c: purple))
-  content((9.0, -1.2), dlbl("a problem at any phase = flip reads back, nothing is lost", sz: 6.5pt, c: green))
+  pprereq(-0.3, 20.7, 3.0, "transactional outbox in place (M9); binlog position recorded; read path already behind a flag (M24)")
+
+  ppill(2.5, 0, "live", "MySQL authoritative", w: 4.8)
+  pstep(7.75, 0, "dw", "dual-write", "outbox → target, async", st-auto, n: 1, actor: "order svc", w: 4.8)
+  pstep(13.01, 0, "bf", "range backfill", "PK ranges · 4.6 days", st-auto, n: 2, actor: "loader", w: 4.8)
+  pstep(18.26, 0, "cdc", "CDC catch-up", "tail binlog from pos", st-integ, n: 3, actor: "debezium", w: 4.8)
+  pstep(18.5, -3.6, "ver", "verify two ways", "checksums + shadow", st-man, n: 4, actor: "migrator", w: 4.8)
+  pdec(13.64, -3.6, "gate", "mismatch\nrate = 0?")
+  pstep(8.0, -3.6, "cut", "read cutover", "1→10→50→100%, then soak", st-auto, n: 5, actor: "flag svc", w: 4.8)
+  ppill(2.4, -3.6, "done", "retire MySQL", w: 2.8)
+  ppill(13.8, -7.0, "back", "flip reads back", c: red, w: 3.4)
+
+  line("live.east", "dw.west", mark: (end: ">"), stroke: hot)
+  line("dw.east", "bf.west", mark: (end: ">"), stroke: hot)
+  line("bf.east", "cdc.west", mark: (end: ">"), stroke: hot)
+  line("cdc.south", (18.26, -1.9), (18.5, -1.9), "ver.north", mark: (end: ">"), stroke: wrap)
+  line("ver.west", "gate.east", mark: (end: ">"), stroke: lookup)
+  line("gate.west", "cut.east", mark: (end: ">"), stroke: hot)
+  plabel(12.0, -2.4, "zero twice running", c: green, dy: 0.0)
+  line("gate.south", "back.north", mark: (end: ">"), stroke: except)
+  plabel(13.8, -5.4, "divergence — one flag flip, nothing lost", c: red, dy: 0.34)
+  line("cut.west", "done.east", mark: (end: ">"), stroke: hot)
+
+  ploop("back.west", "cut.south", -8.8, "fix, re-verify, re-ramp from 1%", c: blue)
 }))
+#pcards(
+  [Outbox pattern already used for the write path; conditional writes in the loader; replication-lag-aware throttle; a flag the on-call can flip alone],
+  [In: every write, to MySQL synchronously and the target asynchronously · Out: reads from the target only once the shadow-read mismatch count has been zero twice in a row],
+  [MySQL primary (source of truth until phase 6) · transactional outbox · Debezium CDC off the binlog · checksummed range scans · shadow reads · feature flags],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[

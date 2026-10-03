@@ -52,21 +52,38 @@
 
 #h2("2 · The solution — a staged campaign, not a switch", c: green)
 
-#align(center, cetz.canvas(length: 0.8cm, {
+#pfig("Fig S6.1 · v1 sunset — the shim deletes the backend early; retirement waits on an absolute user count")
+#align(center, cetz.canvas(length: 0.76cm, {
   import cetz.draw: *
-  swimlane(-0.4, -1.5, 18.4, 1.9, "18–24 MONTHS, MEASURED THROUGHOUT", purple, rgb("#f5eefa"))
-  let ph(x, n, l, s, c) = rnode(x, 0.9, n, l, s, c, w: 3.3, h: 1.0)
-  ph(2.2, "a", "1 · instrument", "usage by version", blue)
-  ph(6.0, "b", "2 · v2 + shim", "v1 → v2 adapter", green)
-  ph(9.8, "c", "3 · migrate", "in-app prompts", green)
-  ph(13.6, "d", "4 · brownout", "scheduled outages", orange)
-  ph(17.2, "e", "5 · retire", "accepted loss", red)
-  for (x, y) in (("a","b"),("b","c"),("c","d"),("d","e")) {
-    line(x + ".east", y + ".west", mark: (end: ">"), stroke: hot)
-  }
-  content((9.0, -0.5), dlbl("the shim is what lets you delete the v1 BACKEND early", sz: 6.6pt, c: green))
-  content((9.0, -1.15), dlbl("brownouts convert silent ignorers into informed upgraders", sz: 6.5pt, c: orange))
+  pprereq(-0.3, 20.7, 3.0, "per-version, per-endpoint call telemetry exists; a named executive accepted the absolute user loss in writing")
+
+  ppill(2.35, 0, "v1", "v1 maintenance burden", c: red, w: 4.5)
+  pstep(7.46, 0, "ins", "instrument v1", "40% unused · 6wk", st-start, n: 1, actor: "platform", w: 4.8)
+  pstep(12.71, 0, "shim", "v1 → v2 shim", "contract kept, backend cut", st-auto, n: 2, actor: "gateway", w: 4.8)
+  pstep(17.96, 0, "mig", "drive migration", "prompt + email · 90d", st-man, n: 3, actor: "growth", w: 4.8)
+  pdec(13.94, -3.6, "cnt", "tail below\naccepted count?")
+  pstep(8.55, -3.6, "bo", "brownouts", "503 for 1h → 4h → 1 day", st-integ, n: 4, actor: "gateway", w: 4.8)
+  ppill(2.9, -3.6, "ret", "retire v1 — blast radius known", c: red, w: 5.6)
+  ppill(18.65, -3.6, "keep", "keep the shim running", w: 4.5)
+
+  line("v1.east", "ins.west", mark: (end: ">"), stroke: miss)
+  line("ins.east", "shim.west", mark: (end: ">"), stroke: hot)
+  line("shim.east", "mig.west", mark: (end: ">"), stroke: hot)
+  line("mig.south", (17.96, -1.8), (13.94, -1.8), "cnt.north", mark: (end: ">"), stroke: lookup)
+  plabel(15.5, -1.8, "95% at 1yr, then flat", c: orange, dy: 0.34)
+  line("cnt.east", "keep.west", mark: (end: ">"), stroke: except)
+  plabel(17.6, -2.4, "no — 50k = £2M/yr", c: red, dy: 0.0)
+  line("cnt.west", "bo.east", mark: (end: ">"), stroke: hot)
+  plabel(12.0, -2.4, "yes", c: green, dy: 0.0)
+  line("bo.west", "ret.east", mark: (end: ">"), stroke: hot)
+
+  ploop("bo.south", "mig.south", -5.6, "each brownout converts silent ignorers into informed upgraders", c: blue)
 }))
+#pcards(
+  [Usage logged per client version and endpoint; a v2 contract worth migrating to; a named owner of the accepted-loss decision],
+  [In: 10M MAU, ~95% on v2 at one year and a flat tail · Out: the v1 backend deleted in quarter two, the v1 contract served by a thin shim, retirement only on an absolute count],
+  [Per-version request logging · v1→v2 translation shim at the gateway · in-app upgrade prompts · scheduled 503 brownouts · tolerant readers in v2 (M7)],
+)
 #v(1.5mm)
 
 #text(size: 9pt)[
